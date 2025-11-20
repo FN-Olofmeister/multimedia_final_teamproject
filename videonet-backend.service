@@ -1,0 +1,16 @@
+[Unit]
+Description=VideoNet Pro Backend Service - 한림대학교 김재형
+After=network.target
+
+[Service]
+Type=simple
+User=kitri
+WorkingDirectory=/home/kitri/videonet/backend
+Environment="PATH=/usr/bin:/usr/local/bin:/home/kitri/.local/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/usr/bin/python3 main.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

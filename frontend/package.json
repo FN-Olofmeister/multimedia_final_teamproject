@@ -1,0 +1,50 @@
+{
+  "name": "videonet-pro-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "deploy:vercel": "vercel --prod",
+    "deploy:github": "npm run build && gh-pages -d dist",
+    "deploy:surge": "npm run build && surge dist videonet-pro.surge.sh"
+  },
+  "dependencies": {
+    "@heroicons/react": "^2.0.18",
+    "axios": "^1.6.2",
+    "clsx": "^2.0.0",
+    "date-fns": "^2.30.0",
+    "framer-motion": "^10.16.16",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hot-toast": "^2.4.1",
+    "react-router-dom": "^6.20.1",
+    "simple-peer": "^9.11.1",
+    "socket.io-client": "^4.5.4",
+    "zustand": "^4.4.7"
+  },
+  "devDependencies": {
+    "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
+    "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "@types/simple-peer": "^9.11.8",
+    "@typescript-eslint/eslint-plugin": "^6.14.0",
+    "@typescript-eslint/parser": "^6.14.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.16",
+    "buffer": "^6.0.3",
+    "eslint": "^8.55.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "gh-pages": "^6.3.0",
+    "postcss": "^8.4.32",
+    "process": "^0.11.10",
+    "tailwindcss": "^3.3.6",
+    "typescript": "^5.3.3",
+    "vercel": "^48.4.1",
+    "vite": "^5.0.8"
+  }
+}

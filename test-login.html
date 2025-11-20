@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VideoNet Pro - 로그인 테스트</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            color: #333;
+            margin: 0 0 30px 0;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 10px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .response {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: none;
+        }
+        .response.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .response.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .test-accounts {
+            margin-top: 30px;
+            padding: 20px;
+            background: #e9ecef;
+            border-radius: 8px;
+        }
+        .test-account {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+        .test-account h3 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+        .test-account p {
+            margin: 5px 0;
+            color: #6c757d;
+        }
+        .test-account button {
+            background: #6c757d;
+            padding: 8px 16px;
+            width: auto;
+            margin-top: 10px;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 VideoNet Pro 로그인 테스트</h1>
+        
+        <div class="form-group">
+            <label for="apiUrl">API URL:</label>
+            <input type="text" id="apiUrl" value="https://8000-i37urfutaoyq78dgicu29-6532622b.e2b.dev/api">
+        </div>
+        
+        <div class="form-group">
+            <label for="email">이메일:</label>
+            <input type="email" id="email" placeholder="demo@example.com">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">비밀번호:</label>
+            <input type="password" id="password" placeholder="demo1234">
+        </div>
+        
+        <button onclick="testLogin()">로그인 테스트</button>
+        
+        <div id="response" class="response"></div>
+        
+        <div class="test-accounts">
+            <h2>📝 테스트 계정</h2>
+            
+            <div class="test-account">
+                <h3>Demo 계정</h3>
+                <p>이메일: demo@example.com</p>
+                <p>비밀번호: demo1234</p>
+                <button onclick="fillDemo()">이 계정으로 채우기</button>
+            </div>
+            
+            <div class="test-account">
+                <h3>Test 계정</h3>
+                <p>이메일: test@example.com</p>
+                <p>비밀번호: testpass123</p>
+                <button onclick="fillTest()">이 계정으로 채우기</button>
+            </div>
+            
+            <div class="test-account">
+                <h3>초대 코드</h3>
+                <p>회원가입용: MASTER2024</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function fillDemo() {
+            document.getElementById('email').value = 'demo@example.com';
+            document.getElementById('password').value = 'demo1234';
+        }
+        
+        function fillTest() {
+            document.getElementById('email').value = 'test@example.com';
+            document.getElementById('password').value = 'testpass123';
+        }
+        
+        async function testLogin() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const responseDiv = document.getElementById('response');
+            
+            responseDiv.style.display = 'block';
+            responseDiv.className = 'response';
+            responseDiv.innerHTML = '⏳ 로그인 중...';
+            
+            try {
+                // 로그인 시도
+                const response = await fetch(`${apiUrl}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: email,  // 백엔드는 username 필드를 기대함
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.innerHTML = `
+                        <h3>✅ 로그인 성공!</h3>
+                        <p><strong>사용자명:</strong> ${data.user.username}</p>
+                        <p><strong>이메일:</strong> ${data.user.email}</p>
+                        <p><strong>개인 코드:</strong> ${data.user.personalCode}</p>
+                        <p><strong>토큰 (처음 50자):</strong> ${data.access_token.substring(0, 50)}...</p>
+                        <details>
+                            <summary>전체 응답 보기</summary>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </details>
+                    `;
+                    
+                    // 토큰 저장
+                    localStorage.setItem('token', data.access_token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.innerHTML = `
+                        <h3>❌ 로그인 실패</h3>
+                        <p><strong>상태 코드:</strong> ${response.status}</p>
+                        <p><strong>에러:</strong> ${data.detail || data.message || '알 수 없는 오류'}</p>
+                        <details>
+                            <summary>전체 응답 보기</summary>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </details>
+                    `;
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.innerHTML = `
+                    <h3>❌ 요청 실패</h3>
+                    <p><strong>에러:</strong> ${error.message}</p>
+                    <p>네트워크 연결을 확인하거나 API URL이 올바른지 확인하세요.</p>
+                `;
+            }
+        }
+        
+        // Enter 키로 로그인
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                testLogin();
+            }
+        });
+    </script>
+</body>
+</html>

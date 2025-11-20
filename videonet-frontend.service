@@ -1,0 +1,15 @@
+[Unit]
+Description=VideoNet Pro Frontend Service - 한림대학교 김재형
+After=network.target
+
+[Service]
+Type=simple
+User=kitri
+WorkingDirectory=/home/kitri/videonet/frontend
+Environment="NODE_ENV=development"
+ExecStart=/home/kitri/.nvm/versions/node/v20.19.5/bin/node /home/kitri/videonet/frontend/node_modules/.bin/vite --port 7700 --host 0.0.0.0
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

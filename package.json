@@ -1,0 +1,29 @@
+{
+  "name": "videonet-pro",
+  "version": "2.0.0",
+  "description": "Premium Video Conference Platform",
+  "scripts": {
+    "postinstall": "cd frontend && npm install",
+    "setup": "npm run setup:backend && npm run setup:frontend",
+    "setup:backend": "cd backend && python -m venv venv && . venv/bin/activate && pip install -r requirements.txt",
+    "setup:frontend": "cd frontend && npm install",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "backend": "cd backend && . venv/bin/activate && uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+    "frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm install && npm run build && cp -r dist/* ../",
+    "build:cloudflare": "./cloudflare-build.sh",
+    "start": "npm run backend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "wrangler": "^4.43.0"
+  },
+  "keywords": [
+    "video",
+    "conference",
+    "webrtc",
+    "chat"
+  ],
+  "author": "VideoNet Team",
+  "license": "MIT"
+}

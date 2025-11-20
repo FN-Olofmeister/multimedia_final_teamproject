@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="apple-touch-icon" href="/logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="VideoNet Pro - 한림대학교 김재형 AI+X 프로젝트 · WebRTC 화상회의 플랫폼" />
+    <meta name="author" content="20205146 김재형" />
+    
+    <!-- 폰트 로드 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <title>VideoNet Pro - 화상회의 플랫폼</title>
+    
+    <!-- SimplePeer를 위한 global 객체 정의 -->
+    <script>
+      // Node.js의 global 객체를 브라우저의 window로 매핑
+      if (typeof global === 'undefined') {
+        window.global = window;
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

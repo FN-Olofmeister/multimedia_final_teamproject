@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Button Test</title>
+  <style>
+    body {
+      background-color: #36393f;
+      color: white;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+    }
+    
+    .test-button {
+      padding: 10px 20px;
+      background-color: #5865f2;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px;
+      font-size: 16px;
+    }
+    
+    .test-button:hover {
+      background-color: #4752c4;
+    }
+    
+    #log {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #2f3136;
+      border-radius: 5px;
+      min-height: 200px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>버튼 클릭 테스트</h1>
+  
+  <button class="test-button" onclick="testClick()">
+    일반 onclick 테스트
+  </button>
+  
+  <button class="test-button" id="eventButton">
+    addEventListener 테스트
+  </button>
+  
+  <button class="test-button" onclick="goToRoom()">
+    회의실로 이동 테스트
+  </button>
+  
+  <div id="log">로그가 여기에 표시됩니다...</div>
+  
+  <script>
+    const log = (msg) => {
+      const logDiv = document.getElementById('log');
+      const time = new Date().toLocaleTimeString();
+      logDiv.innerHTML += `[${time}] ${msg}\n`;
+    };
+    
+    function testClick() {
+      log('일반 onclick 버튼이 클릭되었습니다!');
+      alert('버튼이 작동합니다!');
+    }
+    
+    document.getElementById('eventButton').addEventListener('click', function() {
+      log('addEventListener 버튼이 클릭되었습니다!');
+      alert('이벤트 리스너가 작동합니다!');
+    });
+    
+    function goToRoom() {
+      log('회의실로 이동을 시도합니다...');
+      window.location.href = '/room/test123';
+    }
+    
+    // 페이지 로드 완료
+    log('페이지가 로드되었습니다.');
+  </script>
+</body>
+</html>
