@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # VideoNet Pro - AI 기반 화상회의 플랫폼
 
 [![GitHub](https://img.shields.io/github/license/kjhk3082/Videonet)](LICENSE)
@@ -314,3 +315,7 @@ MIT License - 자세한 내용은 [LICENSE](LICENSE) 파일 참조
 
 **VideoNet Pro** - AI-Powered Video Conference Platform 🚀
 Made with ❤️ by 김재형 (20205146, 한림대학교 콘텐츠IT학과)
+=======
+# multimedia_final_teamproject
+멀티미디어개론_기말_팀플
+>>>>>>> 265e52dccd07054872becaf9993da6da97a78507
