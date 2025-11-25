@@ -68,12 +68,18 @@ export default function RoomPage() {
   useEffect(() => {
     if (!roomId || !user) return;
 
+    // 이미 초기화되었으면 스킵
+    if (socketRef.current?.connected) {
+      console.log('Socket already connected, skipping initialization');
+      return;
+    }
+
     initializeRoom();
 
     return () => {
       cleanup();
     };
-  }, [roomId, user]);
+  }, [roomId, user?.id]); // user 대신 user?.id로 변경하여 안정적인 참조 사용
 
   // 미디어 권한 요청 및 스트림 획득
   const requestMediaPermissions = async (): Promise<MediaStream | null> => {
@@ -168,13 +174,26 @@ export default function RoomPage() {
 
   // Socket.IO 연결
   const connectSocket = () => {
+    // 이미 연결되어 있으면 중복 연결 방지
+    if (socketRef.current?.connected) {
+      console.log('Socket already connected, reusing existing connection');
+      return;
+    }
+
+    // 기존 소켓이 있으면 정리
+    if (socketRef.current) {
+      console.log('Cleaning up existing socket before creating new one');
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+
     // E2B 환경과 로컬 환경 구분
     const socketUrl = window.location.hostname.includes('e2b.dev')
       ? 'https://8000-i37urfutaoyq78dgicu29-6532622b.e2b.dev'
       : import.meta.env.VITE_SOCKET_URL || 'http://localhost:7701';
 
     console.log('🔌 Socket.IO 연결 시도:', socketUrl);
-    
+
     socketRef.current = io(socketUrl, {
       path: '/socket.io/',
       transports: ['websocket', 'polling'],
@@ -219,16 +238,17 @@ export default function RoomPage() {
     socket.on('current_participants', (participants: any[]) => {
       console.log('현재 참가자 목록:', participants);
       console.log('내 Socket ID:', socketIdRef.current);
-      
+
       // 비어있지 않은 경우에만 처리
       if (participants && participants.length > 0) {
         participants.forEach(({ userId, userInfo }) => {
-          // 자기 자신이 아닌 경우에만 연결
+          // 자기 자신이 아닌 경우에만 연결 준비 (offer는 보내지 않음)
           if (userId && userId !== socketIdRef.current) {
-            console.log(`P2P 연결 생성: ${userInfo?.username} (${userId})`);
-            createPeerConnection(userId, userInfo?.username || 'User', true);
+            console.log(`기존 참가자 발견: ${userInfo?.username} (${userId})`);
+            // 연결 객체만 생성하고 offer는 기존 참가자가 보내도록 대기
+            // user_joined 이벤트를 받은 기존 참가자가 offer를 보낼 것임
           } else {
-            console.log(`자기 자신과의 연결 무시: ${userId}`);
+            console.log(`자기 자신 무시: ${userId}`);
           }
         });
       } else {
@@ -374,7 +394,16 @@ export default function RoomPage() {
   const handleWebRTCAnswer = async (from: string, answer: RTCSessionDescriptionInit) => {
     const connection = connectionsRef.current.get(from);
     if (connection) {
-      await connection.setRemoteDescription(answer);
+      const signalingState = connection.getSignalingState();
+      console.log(`Answer 처리 시작 - 현재 signaling state: ${signalingState}`);
+
+      // have-local-offer 상태일 때만 answer를 설정할 수 있음
+      if (signalingState === 'have-local-offer') {
+        await connection.setRemoteDescription(answer);
+        console.log('Answer 설정 완료');
+      } else {
+        console.warn(`잘못된 상태에서 answer 수신 (현재: ${signalingState}). Answer 무시.`);
+      }
     }
   };
 
@@ -405,7 +434,7 @@ export default function RoomPage() {
       });
       setIsMuted(!isMuted);
       
-      socketRef.current?.emit('media-toggle', {
+      socketRef.current?.emit('media_toggle', {
         roomId,
         type: 'audio',
         enabled: isMuted,
@@ -421,7 +450,7 @@ export default function RoomPage() {
       });
       setIsVideoOff(!isVideoOff);
       
-      socketRef.current?.emit('media-toggle', {
+      socketRef.current?.emit('media_toggle', {
         roomId,
         type: 'video',
         enabled: isVideoOff,
@@ -526,7 +555,15 @@ export default function RoomPage() {
   // 회의 나가기
   const leaveRoom = async () => {
     try {
+      // Socket.IO로 방 나가기 이벤트 먼저 전송
+      if (socketRef.current && roomId) {
+        socketRef.current.emit('leave_room', { roomId });
+        console.log('방 나가기 이벤트 전송:', roomId);
+      }
+
+      // 리소스 정리
       cleanup();
+
       // API 호출 (에러는 무시)
       if (roomId) {
         await roomApi.leaveRoom(roomId).catch(console.error);
@@ -540,6 +577,8 @@ export default function RoomPage() {
 
   // 정리 함수
   const cleanup = () => {
+    console.log('Cleanup started - disconnecting all connections');
+
     // 모든 P2P 연결 종료
     connectionsRef.current.forEach(connection => {
       connection.disconnect();
@@ -549,12 +588,20 @@ export default function RoomPage() {
     // 로컬 스트림 종료
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
+      localStreamRef.current = null;
     }
 
-    // Socket 연결 종료
+    // Socket 연결 종료 (이벤트 리스너도 모두 제거)
     if (socketRef.current) {
+      socketRef.current.removeAllListeners(); // 모든 이벤트 리스너 제거
       socketRef.current.disconnect();
+      socketRef.current = null;
     }
+
+    // Socket ID 초기화
+    socketIdRef.current = null;
+
+    console.log('Cleanup completed');
   };
 
   // 채팅 메시지 전송
@@ -570,7 +617,7 @@ export default function RoomPage() {
       timestamp: new Date().toISOString(),
     };
 
-    socketRef.current?.emit('chat-message', {
+    socketRef.current?.emit('chat_message', {
       roomId,
       message,
     });

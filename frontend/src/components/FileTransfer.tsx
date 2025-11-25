@@ -17,8 +17,9 @@ import {
   SignalIcon,
   FilmIcon,
   MagnifyingGlassIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import api from '@/utils/api';
 import toast from 'react-hot-toast';
 
 interface FileTransferProps {
@@ -209,7 +210,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
       formData.append('original_file', selectedFile);
       formData.append('received_file', receivedFile);
 
-      const response = await axios.post('/api/video/verify', formData, {
+      const response = await api.post('/video/verify', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
@@ -248,7 +249,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
 
       toast('동영상 분석 중... (GPT Vision API 사용)', { icon: '🤖' });
 
-      const response = await axios.post('/api/video/analyze', formData, {
+      const response = await api.post('/video/analyze', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
@@ -286,7 +287,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
     setIsChatLoading(true);
     try {
       // GPT API로 추가 질문 전송 (전체 채팅 히스토리 포함)
-      const response = await axios.post('/api/video/chat', {
+      const response = await api.post('/video/chat', {
         question: userMessage,
         analysisResult: analysisResult,
         videoInfo: {

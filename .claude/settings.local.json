@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uvicorn:*)",
+      "Bash(npm run dev:*)",
+      "mcp__shay-5555-gif-chrome-devtools-mcp-2__list_pages",
+      "Bash(python run.py:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_fill_form",
+      "mcp__playwright__browser_console_messages",
+      "Bash(cat:*)",
+      "Bash(taskkill:*)",
+      "Bash(powershell -Command:*)",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_handle_dialog",
+      "mcp__playwright__browser_close",
+      "Bash(npm run build:*)",
+      "mcp__playwright__browser_wait_for",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

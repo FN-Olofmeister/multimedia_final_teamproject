@@ -1,321 +1,279 @@
-<<<<<<< HEAD
-# VideoNet Pro - AI 기반 화상회의 플랫폼
+# VideoNet Pro
 
-[![GitHub](https://img.shields.io/github/license/kjhk3082/Videonet)](LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js-20.x-green)](https://nodejs.org)
-[![React](https://img.shields.io/badge/React-18.x-blue)](https://react.dev)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-orange)](https://fastapi.tiangolo.com)
-[![Python](https://img.shields.io/badge/Python-3.10+-yellow)](https://python.org)
+AI 기능이 포함된 WebRTC 기반 화상회의 플랫폼
 
-> **20205146 한림대학교 콘텐츠IT학과 김재형**
-> **AI+X 프로젝트 과제물 · 2025년 제작**
-> videonet C 프로젝트를 기반으로 만들었습니다
+**작성자**: 20205146 한림대학교 콘텐츠IT 김재형
+**프로젝트**: AI+X 최종 프로젝트
+**기반**: videonet C 프로젝트
 
-Discord와 Zoom의 장점을 결합하고 **AI 기반 동영상 분석** 기능을 추가한 차세대 화상회의 플랫폼입니다. WebRTC 기반의 P2P 연결로 고품질 실시간 영상 통화를 제공하며, **무손실 파일 전송** 및 **GPT Vision API를 활용한 인물 인식** 기능을 제공합니다.
-
-## 🌟 주요 기능
-
-### 핵심 기능
-- **초대 코드 시스템** - 마스터 코드(MASTER2024)로 가입 후 개인 초대 코드 생성
-- **P2P 화상회의** - WebRTC 기반 실시간 영상/음성 통화 (최대 100명)
-- **화면 공유** - 프레젠테이션 및 협업을 위한 스크린 공유
-- **실시간 채팅** - Socket.IO 기반 즉각적인 메시지 전송
-
-### 🆕 파일 전송 시스템
-- **P2P 파일 전송** - Socket.IO를 통한 청크 기반 전송 (16KB 단위)
-- **SHA256 해시 검증** - 전송 전후 파일 무결성 검증
-- **대역폭 측정** - 실시간 전송 속도 및 시간 측정
-- **무손실 전송 보장** - 파일 크기 및 해시 값 비교
-- **진행률 표시** - 실시간 전송 진행률 UI
-
-### 🤖 AI 동영상 분석 (GPT Vision API)
-- **슬라이싱 기반 요약** - OpenCV로 10개 주요 프레임 추출
-- **인물 인식** - GPT-4o-mini로 프레임별 인물 감지
-- **"인물 없음" 감지** - 인물이 없는 프레임 자동 필터링
-- **JPEG 압축** - 60% 압축률로 토큰 사용량 최소화
-- **저해상도 분석** - "low" detail 옵션으로 비용 80% 절감
-- **토큰 제한** - max_tokens=150으로 응답 토큰 제한
-
-### 기술적 특징
-- **Native WebRTC** - SimplePeer 대신 직접 구현한 WebRTC로 안정성 향상
-- **JWT 인증** - 보안 토큰 기반 사용자 인증
-- **SQLite 데이터베이스** - 경량 임베디드 데이터베이스
-- **Tailwind CSS** - Discord 스타일 다크 테마 UI
-- **TypeScript** - 타입 안정성 보장
-- **systemd 서비스** - 자동 시작 및 관리
+---
 
 ## 🚀 빠른 시작
 
-### 시스템 요구사항
-```bash
-Node.js 20.0.0 이상
-Python 3.10 이상
-npm 또는 pnpm
-OpenAI API Key (동영상 분석 기능 사용 시)
-```
+### 1. 서버 실행
 
-### 설치 및 실행
-
-#### 1. 저장소 클론
 ```bash
-git clone https://github.com/kjhk3082/Videonet.git
-cd Videonet
-```
-
-#### 2. 의존성 설치
-```bash
-# 백엔드 설정
+# 백엔드 서버 (포트 7701) - 가장 간단!
 cd backend
-pip3 install -r requirements.txt
+python run.py
 
-# 프론트엔드 설정
-cd ../frontend
-npm install
-```
-
-#### 3. 환경 변수 설정
-```bash
-# backend/.env
-OPENAI_API_KEY=your_openai_api_key_here
-JWT_SECRET_KEY=your_secret_key_here
-CORS_ORIGINS=http://localhost:7700,https://your-domain.com
-```
-
-#### 4. systemd 서비스 설치 (자동 시작)
-```bash
-# 루트 디렉토리에서
-./install_services.sh
-```
-
-#### 5. 수동 실행 (개발용)
-```bash
-# 백엔드 (터미널 1)
-cd backend
-uvicorn main:app --host 0.0.0.0 --port 7701
-
-# 프론트엔드 (터미널 2)
+# 프론트엔드 서버 (포트 7700)
 cd frontend
-npm run dev  # http://localhost:7700
+npm run dev
 ```
+
+### 2. 브라우저 접속
+
+- **프론트엔드**: http://localhost:7700
+- **백엔드 API**: http://localhost:7701
+- **API 문서**: http://localhost:7701/docs
+
+### 3. 테스트 계정
+
+- **마스터 초대코드**: `MASTER2024`
+- 회원가입 후 개인 코드 자동 생성 (P-XXXXXX 형식)
+
+---
+
+## ✨ 주요 기능
+
+### 1. WebRTC 화상회의
+- 다중 사용자 실시간 화상회의
+- 화면 공유
+- 오디오/비디오 토글
+
+### 2. P2P 파일 전송
+- SHA256 해시 검증을 통한 무손실 전송
+- 16KB 청크 전송
+- 최소 대역폭 사용
+
+### 3. AI 동영상 분석
+- GPT-4o-mini Vision API 통합
+- 슬라이싱 기반 요약
+- 인물 인식
+
+### 4. 실시간 채팅
+- Socket.IO 기반 실시간 메시징
+- 방별 채팅
+
+---
+
+## 🏗️ 기술 스택
+
+### 백엔드
+- **프레임워크**: FastAPI + python-socketio
+- **데이터베이스**: SQLite (Raw SQL)
+- **인증**: JWT + bcrypt
+- **AI**: OpenAI GPT-4o-mini Vision
+- **포트**: 7701
+
+### 프론트엔드
+- **프레임워크**: React 18 + Vite + TypeScript
+- **스타일**: Tailwind CSS
+- **상태 관리**: Zustand
+- **WebRTC**: 순수 WebRTC API
+- **포트**: 7700
+
+---
 
 ## 📁 프로젝트 구조
 
 ```
-videonet/
-├── backend/                        # FastAPI 백엔드
-│   ├── main.py                     # API 엔드포인트 및 비즈니스 로직
-│   ├── socketio_server.py          # Socket.IO 실시간 통신 처리
-│   ├── video_analysis.py           # 🆕 동영상 분석 및 인물 인식 (GPT Vision API)
-│   ├── file_transfer.py            # 🆕 파일 전송 API (검증 및 분석)
-│   ├── videonet.db                 # SQLite 데이터베이스
-│   ├── .env                        # 환경 변수 (OpenAI API Key 등)
-│   └── requirements.txt            # Python 패키지 목록
+multimedia_final_teamproject/
+├── backend/                 # FastAPI 백엔드
+│   ├── main.py             # REST API 엔드포인트
+│   ├── socketio_server.py  # Socket.IO 시그널링
+│   ├── video_analysis.py   # AI 동영상 분석
+│   ├── file_transfer.py    # P2P 파일 전송
+│   └── videonet.db         # SQLite 데이터베이스
 │
-├── frontend/                       # React 프론트엔드
+├── frontend/               # React 프론트엔드
 │   ├── src/
-│   │   ├── pages/                  # 페이지 컴포넌트
-│   │   │   ├── LandingPage.tsx    # 메인 랜딩 페이지
-│   │   │   ├── RegisterPage.tsx   # 회원가입 (초대 코드 검증)
-│   │   │   ├── LoginPage.tsx      # 로그인
-│   │   │   ├── DashboardPage.tsx  # 대시보드 (방 관리)
-│   │   │   └── RoomPage.tsx       # 화상회의 룸 (채팅/파일 전송 탭)
-│   │   ├── components/
-│   │   │   └── FileTransfer.tsx   # 🆕 파일 전송 UI (드래그앤드롭, 검증, 분석)
-│   │   ├── contexts/
-│   │   │   └── AuthContext.tsx    # 인증 상태 관리
-│   │   ├── utils/
-│   │   │   ├── api.ts             # API 통신 유틸리티
-│   │   │   └── webrtc-native.ts   # WebRTC 연결 관리
-│   │   └── App.tsx                # 라우팅 및 앱 진입점
-│   └── public/
-│       └── logo.svg                # VideoNet Pro 로고
+│   │   ├── pages/         # 페이지 컴포넌트
+│   │   ├── contexts/      # React Context
+│   │   └── utils/         # 유틸리티 (WebRTC 등)
+│   └── package.json
 │
-├── install_services.sh             # systemd 서비스 설치 스크립트
-├── README.md                       # 프로젝트 문서
-└── CODEANALYSIS.md                 # 코드 상세 분석 문서
+├── .docs/                  # 📚 프로젝트 문서
+│   ├── CLAUDE.md          # AI 작업 규칙 및 아키텍처
+│   ├── PROJECT_STATUS.md  # 현재 상태
+│   ├── FEATURE_PLAN.md    # 기능 로드맵
+│   └── CHANGELOG.md       # 변경 이력
+│
+├── TODO.md                 # 작업 목록
+└── README.md              # 이 파일
 ```
-
-## 🔧 API 엔드포인트
-
-### 인증 관련
-| 메서드 | 경로 | 설명 |
-|--------|------|------|
-| POST | `/api/auth/register` | 회원가입 (초대 코드 필요) |
-| POST | `/api/auth/login` | 로그인 |
-| GET | `/api/auth/me` | 현재 사용자 정보 |
-
-### 방 관리
-| 메서드 | 경로 | 설명 |
-|--------|------|------|
-| POST | `/api/rooms/create` | 새 방 생성 |
-| GET | `/api/rooms` | 방 목록 조회 |
-| GET | `/api/rooms/{roomId}` | 특정 방 정보 |
-| POST | `/api/rooms/{roomId}/join` | 방 참가 |
-| POST | `/api/rooms/{roomId}/leave` | 방 나가기 |
-
-### 🆕 파일 전송 및 분석
-| 메서드 | 경로 | 설명 |
-|--------|------|------|
-| POST | `/api/video/verify` | 파일 검증 (SHA256 해시 비교) |
-| POST | `/api/video/analyze` | 동영상 분석 (GPT Vision API) |
-
-### Socket.IO 이벤트
-| 이벤트 | 방향 | 설명 |
-|--------|------|------|
-| `join_room` | Client → Server | 방 입장 |
-| `leave_room` | Client → Server | 방 퇴장 |
-| `webrtc_offer` | Client ↔ Server | WebRTC Offer 전송 |
-| `webrtc_answer` | Client ↔ Server | WebRTC Answer 전송 |
-| `webrtc_ice_candidate` | Client ↔ Server | ICE Candidate 교환 |
-| `chat_message` | Client ↔ Server | 채팅 메시지 |
-| `file_transfer_start` | Client ↔ Server | 🆕 파일 전송 시작 |
-| `file_chunk` | Client ↔ Server | 🆕 파일 청크 전송 (16KB) |
-| `file_transfer_end` | Client ↔ Server | 🆕 파일 전송 완료 |
-
-## 🎨 UI/UX 특징
-
-### Discord 스타일 다크 테마
-- 배경: `#1e1f2e` (디스코드 다크)
-- 카드: `#2b2d3d` (카드 배경)
-- 액센트: `#5865F2` (디스코드 브랜드 컬러)
-- Zoom Blue: `#2D8CFF` (줌 블루)
-
-### 반응형 레이아웃
-- 모바일, 태블릿, 데스크톱 지원
-- Flexbox 및 Grid 기반 레이아웃
-- Framer Motion 애니메이션
-
-## 📊 파일 전송 성능
-
-### 측정 지표
-1. **파일 크기** - 전송 전후 크기 비교
-2. **전송 시간** - 밀리초 단위 측정
-3. **대역폭** - MB/s 단위로 실시간 계산
-4. **SHA256 해시** - 브라우저 및 서버에서 이중 검증
-
-### 최적화 기법
-- **16KB 청크** - 버퍼 오버플로우 방지
-- **10ms 대기** - 백프레셔(backpressure) 방지
-- **진행률 UI** - 실시간 전송 상태 표시
-
-## 🤖 AI 동영상 분석 성능
-
-### 비용 최적화
-- **GPT-4o-mini** - 약 $0.03 / 1M 토큰
-- **JPEG 60% 압축** - 이미지 크기 80% 감소
-- **"low" detail** - 토큰 사용량 80% 감소
-- **max_tokens=150** - 응답 토큰 제한
-
-### 예상 비용
-| 동영상 수 | 프레임 수 (10개/동영상) | 예상 비용 (월) |
-|----------|----------------------|-------------|
-| 50개 (1시간) | 500개 | $0.15~$0.25 |
-| 100개 (2시간) | 1,000개 | $0.30~$0.50 |
-| 1,000개 (20시간) | 10,000개 | $3.00~$5.00 |
-
-## 🔐 보안
-
-### 인증 시스템
-- **JWT 토큰** - HttpOnly 쿠키로 안전한 토큰 저장
-- **초대 코드** - 무분별한 가입 방지
-- **비밀번호 해싱** - bcrypt로 암호화 저장
-
-### 파일 전송 보안
-- **SHA256 해시** - 파일 무결성 검증
-- **청크 검증** - 각 청크마다 순서 확인
-- **서버 검증** - 최종 파일 해시 서버 측 재확인
-
-### WebRTC 보안
-- **STUN/TURN 서버** - Google 공개 STUN 서버 사용
-- **P2P 암호화** - DTLS-SRTP 자동 암호화
-
-## 🚢 systemd 서비스 관리
-
-### 서비스 명령어
-```bash
-# 서비스 시작
-sudo systemctl start videonet-backend
-sudo systemctl start videonet-frontend
-
-# 서비스 중지
-sudo systemctl stop videonet-backend
-sudo systemctl stop videonet-frontend
-
-# 서비스 재시작
-sudo systemctl restart videonet-backend
-sudo systemctl restart videonet-frontend
-
-# 서비스 상태 확인
-sudo systemctl status videonet-backend
-sudo systemctl status videonet-frontend
-
-# 로그 확인 (실시간)
-sudo journalctl -u videonet-backend -f
-sudo journalctl -u videonet-frontend -f
-
-# 부팅 시 자동 시작 활성화
-sudo systemctl enable videonet-backend
-sudo systemctl enable videonet-frontend
-```
-
-## 🛠️ 트러블슈팅
-
-### 일반적인 문제 해결
-
-#### 1. 파일 전송이 실패함
-- Socket.IO 연결 상태 확인
-- 파일 크기 제한 확인 (브라우저 메모리)
-- 방화벽 설정 확인
-
-#### 2. 동영상 분석이 작동하지 않음
-- .env 파일에 OPENAI_API_KEY 설정 확인
-- OpenAI API 크레딧 잔액 확인
-- 동영상 포맷 확인 (mp4, avi 지원)
-
-#### 3. WebRTC 연결 실패
-- 방화벽/NAT 설정 확인
-- STUN/TURN 서버 상태 확인
-- 카메라/마이크 권한 확인
-
-#### 4. systemd 서비스가 시작되지 않음
-```bash
-# 로그 확인
-sudo journalctl -u videonet-backend -n 50
-sudo journalctl -u videonet-frontend -n 50
-
-# 서비스 파일 검증
-sudo systemctl daemon-reload
-```
-
-## 📈 프로젝트 상태
-
-- ✅ MVP 완성
-- ✅ 화면 공유 기능
-- ✅ 초대 코드 시스템
-- ✅ 실시간 채팅
-- ✅ P2P 파일 전송 (SHA256 검증)
-- ✅ AI 동영상 분석 (GPT Vision API)
-- ✅ systemd 서비스 관리
-- 🔄 모바일 최적화 (진행 중)
-- 📋 녹화 기능 (계획 중)
-
-## 📄 라이선스
-
-MIT License - 자세한 내용은 [LICENSE](LICENSE) 파일 참조
-
-## 🔗 관련 링크
-
-- [GitHub Repository](https://github.com/kjhk3082/Videonet)
-- [Code Analysis](./CODEANALYSIS.md)
-- [WebRTC Specification](https://www.w3.org/TR/webrtc/)
-- [Socket.IO Documentation](https://socket.io/docs/v4/)
-- [OpenAI GPT Vision API](https://platform.openai.com/docs/guides/vision)
 
 ---
 
-**VideoNet Pro** - AI-Powered Video Conference Platform 🚀
-Made with ❤️ by 김재형 (20205146, 한림대학교 콘텐츠IT학과)
-=======
-# multimedia_final_teamproject
-멀티미디어개론_기말_팀플
->>>>>>> 265e52dccd07054872becaf9993da6da97a78507
+## 📚 문서
+
+### 🎯 시작하기 전에 읽어야 할 문서 (우선순위 순)
+
+1. **[TODO.md](TODO.md)** ⭐ 가장 먼저 읽을 것!
+   - 최근 작업 이력 및 변경사항
+   - 긴급 수정 필요한 버그 목록
+   - 우선순위별 작업 계획
+   - 완료된 작업 체크리스트
+
+2. **[.docs/CLAUDE.md](.docs/CLAUDE.md)** ⭐ 개발 가이드
+   - 프로젝트 아키텍처 및 개발 규칙
+   - 절대 규칙 (NO MOCKS!)
+   - 구현 패턴 및 코딩 규칙
+   - 알려진 이슈 및 제약사항
+   - 트러블슈팅 가이드
+
+3. **[.docs/PROJECT_STATUS.md](.docs/PROJECT_STATUS.md)**
+   - 프로젝트 현재 상태
+   - 테스트 결과
+   - 성능 지표
+
+4. **[.docs/FEATURE_PLAN.md](.docs/FEATURE_PLAN.md)**
+   - 기능 로드맵
+   - 개발 일정
+   - 우선순위 계획
+
+---
+
+## 🛠️ 개발 환경 설정
+
+### 필수 요구사항
+- Python 3.11+
+- Node.js 18+
+- npm 9+
+- SQLite 3
+
+### 백엔드 설정
+
+```bash
+cd backend
+
+# 의존성 설치
+pip install -r requirements.txt
+
+# 환경 변수 설정
+# backend/.env 파일 생성
+cat > .env << EOF
+SECRET_KEY=videonet-secret-key-2024
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+MASTER_INVITE_CODE=MASTER2024
+DATABASE_NAME=videonet.db
+OPENAI_API_KEY=sk-proj-your-key-here
+EOF
+
+# 서버 실행 (가장 간단한 방법)
+python run.py
+
+# 또는 uvicorn 직접 실행 (개발 시)
+# uvicorn main:combined_app --host 0.0.0.0 --port 7701 --reload
+```
+
+### 프론트엔드 설정
+
+```bash
+cd frontend
+
+# 의존성 설치
+npm install
+
+# 개발 서버 실행
+npm run dev
+
+# 빌드
+npm run build
+```
+
+---
+
+## 🧪 테스트
+
+### API 테스트
+
+```bash
+# 서버 상태 확인
+curl http://localhost:7701/
+
+# 회원가입
+curl -X POST http://localhost:7701/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@videonet.com",
+    "username": "testuser",
+    "password": "test1234",
+    "inviteCode": "MASTER2024"
+  }'
+
+# FastAPI 자동 문서
+http://localhost:7701/docs
+```
+
+### WebRTC 테스트
+
+1. 두 개의 브라우저 탭 열기
+2. 각각 회원가입 및 로그인
+3. 한 사용자가 방 생성
+4. 다른 사용자가 방 입장
+5. 화상 연결 확인
+
+---
+
+## 📊 현재 상태 (2025-11-25)
+
+### ✅ 완료됨
+- 데이터베이스 생성 및 초기화
+- 환경 설정 파일 구성
+- Socket.IO 이벤트 통일
+- WebRTC signaling state 검증
+- 실시간 참가자 수 추적
+
+### ⚠️ 알려진 이슈 (긴급 수정 필요)
+1. ❌ 방 리스트 실시간 업데이트 안 됨
+2. ❌ 참가자 수 불일치
+3. ❌ 빈 방이 자동 삭제 안 됨
+
+### 📋 다음 작업
+**P0 - 긴급**: 위 3개 이슈 해결 (예상 6-9시간)
+
+자세한 내용은 **[TODO.md](TODO.md)** 참조
+
+---
+
+## ⚠️ 알려진 제약사항
+
+1. **WebRTC NAT 통과**: STUN만 사용, TURN 서버 미설정
+2. **파일 크기**: 청크 16KB 제한, 대용량 파일(>100MB) 테스트 필요
+3. **동시 접속**: 현재 100명 제한
+4. **npm 보안 취약점**: 15개 (개발 의존성만, 런타임 영향 없음)
+
+---
+
+## 🤝 기여 가이드
+
+### 절대 규칙
+- ❌ **목업/테스트/임시 데이터 절대 금지**
+- ❌ **SQLAlchemy ORM 사용 금지** (Raw SQL만 사용)
+- ✅ **프로덕션 품질 코드만 작성**
+- ✅ **모든 엣지 케이스 고려**
+- ✅ **변경사항 `.docs/CHANGELOG.md`에 기록**
+
+자세한 내용은 [.docs/CLAUDE.md](.docs/CLAUDE.md) 참조
+
+---
+
+## 📞 문의
+
+- **GitHub**: [FN-Olofmeister/multimedia_final_teamproject](https://github.com/FN-Olofmeister/multimedia_final_teamproject)
+- **문서**: `.docs/` 디렉토리 참조
+
+---
+
+## 📄 라이선스
+
+이 프로젝트는 교육 목적으로 제작되었습니다.
+
+**한림대학교 콘텐츠IT 학부 AI+X 프로젝트 과제**
+
+---
+
+**마지막 업데이트**: 2025-11-25

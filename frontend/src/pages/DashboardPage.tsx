@@ -2,7 +2,7 @@
  * 대시보드 페이지 - 로그인 후 메인 페이지
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -19,6 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { roomApi } from '@/utils/api';
 import type { Room } from '@/types';
 import toast from 'react-hot-toast';
+import io, { Socket } from 'socket.io-client';
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
@@ -29,10 +30,47 @@ export default function DashboardPage() {
   const [showPersonalCode, setShowPersonalCode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
+  const socketRef = useRef<Socket | null>(null);
 
   // 방 목록 불러오기
   useEffect(() => {
     fetchRooms();
+  }, []);
+
+  // Socket.IO 연결 및 실시간 방 목록 업데이트 구독
+  useEffect(() => {
+    const socketUrl = 'http://localhost:7701';
+
+    console.log('🔌 Socket.IO 연결 시도 (대시보드):', socketUrl);
+
+    socketRef.current = io(socketUrl, {
+      path: '/socket.io/',
+      transports: ['websocket', 'polling'],
+    });
+
+    // 연결 성공
+    socketRef.current.on('connect', () => {
+      console.log('✅ Socket.IO 연결 성공 (대시보드)');
+    });
+
+    // 방 목록 업데이트 이벤트 수신
+    socketRef.current.on('room_list_updated', () => {
+      console.log('📢 방 목록 업데이트 알림 수신 - 새로고침');
+      fetchRooms();
+    });
+
+    // 연결 해제
+    socketRef.current.on('disconnect', () => {
+      console.log('❌ Socket.IO 연결 해제 (대시보드)');
+    });
+
+    // 클린업
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
   }, []);
 
   const fetchRooms = async () => {
@@ -231,7 +269,7 @@ export default function DashboardPage() {
                     <div>
                       <h3 className="text-white font-medium">{room.name}</h3>
                       <p className="text-sm text-gray-400">
-                        {room.participants.length}/{room.maxParticipants}명 참가 중
+                        {(room as any).participantCount || 0}/{room.maxParticipants}명 참가 중
                       </p>
                     </div>
                     <VideoCameraIcon className="w-5 h-5 text-discord-brand" />

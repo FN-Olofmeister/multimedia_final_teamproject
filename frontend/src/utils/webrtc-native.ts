@@ -321,6 +321,10 @@ export class NativeWebRTCConnection {
     return this.connectionState;
   }
 
+  getSignalingState(): RTCSignalingState {
+    return this.pc?.signalingState || 'closed';
+  }
+
   getCurrentLocalStream(): MediaStream | null {
     return this.localStream;
   }
