@@ -345,7 +345,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
           type="file"
           onChange={handleFileSelect}
           className="hidden"
-          accept="video/*,*/*"
+          accept="*/*"
         />
         <button
           onClick={() => fileInputRef.current?.click()}
