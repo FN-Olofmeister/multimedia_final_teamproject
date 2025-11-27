@@ -30,6 +30,8 @@ import { roomApi } from '@/utils/api';
 import io, { Socket } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import FileTransfer from '@/components/FileTransfer';
+import WebcamCompression from '@/components/WebcamCompression';
+import WebcamEffects from '@/components/WebcamEffects';
 
 interface VideoStream {
   userId: string;
@@ -56,6 +58,8 @@ export default function RoomPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [currentVideoTrack, setCurrentVideoTrack] = useState<MediaStreamTrack | null>(null);
   const [originalVideoTrack, setOriginalVideoTrack] = useState<MediaStreamTrack | null>(null);
+  const [showWebcamCompression, setShowWebcamCompression] = useState(false);
+  const [showWebcamEffects, setShowWebcamEffects] = useState(false);
 
   // Refs
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -873,6 +877,7 @@ export default function RoomPage() {
               whileTap={{ scale: 0.9 }}
               onClick={() => setShowChat(!showChat)}
               className="p-3 rounded-full bg-gray-700 hover:bg-gray-600 text-white transition-colors"
+              title="채팅/파일 전송"
             >
               <ChatBubbleLeftIcon className="w-6 h-6" />
             </motion.button>
@@ -880,8 +885,33 @@ export default function RoomPage() {
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
+              onClick={() => setShowWebcamCompression(true)}
+              className="p-3 rounded-full bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+              title="압축 품질 분석"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+              </svg>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setShowWebcamEffects(true)}
+              className="p-3 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+              title="영상/오디오 효과"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42" />
+              </svg>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
               onClick={leaveRoom}
               className="p-3 rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors"
+              title="회의 나가기"
             >
               <PhoneXMarkIcon className="w-6 h-6" />
             </motion.button>
@@ -970,6 +1000,50 @@ export default function RoomPage() {
           )}
         </motion.aside>
       )}
+
+      {/* 웹캠 압축 품질 분석 모달 */}
+      <WebcamCompression
+        videoRef={localVideoRef}
+        isOpen={showWebcamCompression}
+        onClose={() => setShowWebcamCompression(false)}
+      />
+
+      {/* 웹캠 실시간 효과 모달 */}
+      <WebcamEffects
+        isOpen={showWebcamEffects}
+        onClose={() => setShowWebcamEffects(false)}
+        localStream={localStreamRef.current}
+        onStreamUpdate={(newStream) => {
+          // 새 스트림으로 업데이트
+          localStreamRef.current = newStream;
+
+          // 로컬 비디오 엘리먼트 업데이트
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = newStream;
+          }
+
+          // 모든 P2P 연결에 새 스트림 전송
+          connectionsRef.current.forEach((connection, peerId) => {
+            console.log(`[WebcamEffects] P2P 연결 ${peerId}에 새 스트림 적용`);
+
+            // 기존 트랙 제거
+            const senders = connection.peerConnection?.getSenders() || [];
+            senders.forEach(sender => {
+              if (sender.track) {
+                connection.peerConnection?.removeTrack(sender);
+              }
+            });
+
+            // 새 트랙 추가
+            newStream.getTracks().forEach(track => {
+              connection.peerConnection?.addTrack(track, newStream);
+            });
+          });
+
+          console.log('[WebcamEffects] 스트림 업데이트 완료');
+          toast.success('효과가 적용되었습니다!');
+        }}
+      />
     </div>
   );
 }

@@ -27,6 +27,7 @@ import socketio
 from socketio_server import sio, socket_app, get_all_room_participants, notify_room_list_update
 from file_transfer import router as file_router
 from video_analysis import router as video_router
+from image_compression import router as compression_router
 
 # ===== 설정 =====
 SECRET_KEY = os.getenv("SECRET_KEY", "videonet-secret-key-2024")
@@ -56,6 +57,9 @@ app.include_router(file_router)
 
 # 동영상 분석 라우터 추가
 app.include_router(video_router)
+
+# 이미지 압축 및 품질 평가 라우터 추가
+app.include_router(compression_router)
 
 # ===== 보안 설정 =====
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

@@ -41,6 +41,7 @@ npm run dev
 - 다중 사용자 실시간 화상회의
 - 화면 공유
 - 오디오/비디오 토글
+- 실시간 참가자 수 표시
 
 ### 2. P2P 파일 전송
 - SHA256 해시 검증을 통한 무손실 전송
@@ -52,7 +53,23 @@ npm run dev
 - 슬라이싱 기반 요약
 - 인물 인식
 
-### 4. 실시간 채팅
+### 4. 이미지/영상 압축 품질 분석 ⭐ NEW
+- 실시간 웹캠 프레임 압축 분석
+- 압축품질 슬라이더 (10-100)
+- PSNR/SSIM 품질 지표 계산
+- 그래프 시각화 (Recharts)
+- 파일 크기/압축률 실시간 표시
+
+### 5. 웹캠 실시간 효과 🎬 NEW
+- 영상 반전 효과 (좌우/상하)
+- 전단 효과 (Shear Transform)
+- 오디오 Low Pass Filter
+- 음성 변조 (Echo, Reverb)
+- AI 렌더링 필터 (흑백, 세피아, 블러, 엣지, 카툰, 네온)
+- Canvas API + Web Audio API 실시간 처리
+- **참고 문서**: [.docs/WEBCAM_EFFECTS.md](.docs/WEBCAM_EFFECTS.md)
+
+### 6. 실시간 채팅
 - Socket.IO 기반 실시간 메시징
 - 방별 채팅
 
@@ -65,6 +82,7 @@ npm run dev
 - **데이터베이스**: SQLite (Raw SQL)
 - **인증**: JWT + bcrypt
 - **AI**: OpenAI GPT-4o-mini Vision
+- **이미지 처리**: OpenCV, scikit-image
 - **포트**: 7701
 
 ### 프론트엔드
@@ -72,6 +90,7 @@ npm run dev
 - **스타일**: Tailwind CSS
 - **상태 관리**: Zustand
 - **WebRTC**: 순수 WebRTC API
+- **그래프**: Recharts
 - **포트**: 7700
 
 ---
@@ -84,23 +103,33 @@ multimedia_final_teamproject/
 │   ├── main.py             # REST API 엔드포인트
 │   ├── socketio_server.py  # Socket.IO 시그널링
 │   ├── video_analysis.py   # AI 동영상 분석
+│   ├── image_compression.py# 이미지/영상 압축 및 품질 평가
 │   ├── file_transfer.py    # P2P 파일 전송
 │   └── videonet.db         # SQLite 데이터베이스
 │
 ├── frontend/               # React 프론트엔드
 │   ├── src/
 │   │   ├── pages/         # 페이지 컴포넌트
+│   │   ├── components/    # UI 컴포넌트
+│   │   │   ├── CompressionAnalysis.tsx      # 압축 분석 그래프
+│   │   │   ├── CompressionQualitySlider.tsx # 품질 슬라이더
+│   │   │   ├── WebcamCompression.tsx        # 웹캠 압축 모달
+│   │   │   └── WebcamEffects.tsx            # 🎬 웹캠 효과 모달 (예정)
 │   │   ├── contexts/      # React Context
 │   │   └── utils/         # 유틸리티 (WebRTC 등)
+│   │       ├── video-effects.ts             # 🎬 영상 효과 처리 (예정)
+│   │       └── audio-effects.ts             # 🎬 오디오 효과 처리 (예정)
 │   └── package.json
 │
 ├── .docs/                  # 📚 프로젝트 문서
-│   ├── CLAUDE.md          # AI 작업 규칙 및 아키텍처
-│   ├── PROJECT_STATUS.md  # 현재 상태
-│   ├── FEATURE_PLAN.md    # 기능 로드맵
-│   └── CHANGELOG.md       # 변경 이력
+│   ├── TODO.md            # 작업 목록 및 이력 ⭐
+│   ├── CLAUDE.md          # AI 작업 규칙 및 아키텍처 ⭐
+│   ├── PROJECT_STATUS.md  # 현재 상태 및 진행률 ⭐
+│   ├── CHANGELOG.md       # 변경 이력
+│   ├── COMPRESSION_FEATURE.md # 압축 기능 상세 문서
+│   ├── WEBCAM_EFFECTS.md  # 🎬 웹캠 효과 기능 상세 문서 (다음 작업!)
+│   └── legacy/            # 과거 문서 보관
 │
-├── TODO.md                 # 작업 목록
 └── README.md              # 이 파일
 ```
 
@@ -110,7 +139,7 @@ multimedia_final_teamproject/
 
 ### 🎯 시작하기 전에 읽어야 할 문서 (우선순위 순)
 
-1. **[TODO.md](TODO.md)** ⭐ 가장 먼저 읽을 것!
+1. **[.docs/TODO.md](.docs/TODO.md)** ⭐ 가장 먼저 읽을 것!
    - 최근 작업 이력 및 변경사항
    - 긴급 수정 필요한 버그 목록
    - 우선순위별 작업 계획
@@ -123,15 +152,30 @@ multimedia_final_teamproject/
    - 알려진 이슈 및 제약사항
    - 트러블슈팅 가이드
 
-3. **[.docs/PROJECT_STATUS.md](.docs/PROJECT_STATUS.md)**
-   - 프로젝트 현재 상태
-   - 테스트 결과
-   - 성능 지표
+3. **[.docs/PROJECT_STATUS.md](.docs/PROJECT_STATUS.md)** ⭐
+   - 프로젝트 현재 상태 및 진행률
+   - 완료된 기능 체크리스트
+   - 테스트 결과 및 성능 지표
+   - 기술 스택 상세 정보
+   - 알려진 이슈 및 제약사항
 
-4. **[.docs/FEATURE_PLAN.md](.docs/FEATURE_PLAN.md)**
-   - 기능 로드맵
-   - 개발 일정
-   - 우선순위 계획
+4. **[.docs/CHANGELOG.md](.docs/CHANGELOG.md)** ⭐ NEW
+   - 모든 주요 변경사항 기록
+   - 버전별 업데이트 내역
+   - 버그 수정 이력
+   - 추가/변경/제거된 기능
+
+5. **[.docs/COMPRESSION_FEATURE.md](.docs/COMPRESSION_FEATURE.md)**
+   - 압축품질 조절 기능 상세 가이드
+   - API 엔드포인트 및 사용법
+   - PSNR/SSIM 지표 설명
+   - 설치 및 사용 방법
+
+6. **[.docs/WEBCAM_EFFECTS.md](.docs/WEBCAM_EFFECTS.md)** 🎬 다음 작업!
+   - 웹캠 실시간 효과 기능 가이드
+   - Canvas API 및 Web Audio API 구현
+   - 난이도별 단계적 구현 계획 (5단계)
+   - UI 디자인 및 아키텍처
 
 ---
 
@@ -276,4 +320,4 @@ http://localhost:7701/docs
 
 ---
 
-**마지막 업데이트**: 2025-11-25
+**마지막 업데이트**: 2025-11-26

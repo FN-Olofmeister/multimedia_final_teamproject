@@ -21,6 +21,8 @@ import {
 } from '@heroicons/react/24/outline';
 import api from '@/utils/api';
 import toast from 'react-hot-toast';
+import CompressionAnalysis from './CompressionAnalysis';
+import CompressionQualitySlider from './CompressionQualitySlider';
 
 interface FileTransferProps {
   roomId: string;
@@ -51,6 +53,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [compressionQuality, setCompressionQuality] = useState(70);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -328,7 +331,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
           type="file"
           onChange={handleFileSelect}
           className="hidden"
-          accept="video/*,*/*"
+          accept="*/*"
         />
         <button
           onClick={() => fileInputRef.current?.click()}
@@ -422,6 +425,21 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
             <p className="text-gray-300">크기 일치: {verificationResult.file_size_match ? '✅' : '❌'}</p>
             <p className="text-gray-300">검증 시간: {verificationResult.verification_time.toFixed(2)}초</p>
           </div>
+        </div>
+      )}
+
+      {/* 압축 품질 조절 (이미지/영상 파일만) */}
+      {selectedFile && (selectedFile.type.includes('image') || selectedFile.type.includes('video')) && (
+        <div className="space-y-4">
+          <CompressionQualitySlider
+            quality={compressionQuality}
+            onChange={setCompressionQuality}
+            showMetrics={false}
+          />
+          <CompressionAnalysis
+            file={selectedFile}
+            fileType={selectedFile.type.includes('video') ? 'video' : 'image'}
+          />
         </div>
       )}
 
