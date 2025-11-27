@@ -15,8 +15,8 @@ sio = socketio.AsyncServer(
     engineio_logger=True
 )
 
-# ASGI 앱 생성
-socket_app = socketio.ASGIApp(sio)
+socket_app = None
+
 
 # 연결된 사용자 관리
 connected_users: Dict[str, Dict] = {}  # session_id -> user_info

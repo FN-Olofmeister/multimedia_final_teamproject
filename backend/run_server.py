@@ -16,15 +16,15 @@ if __name__ == "__main__":
     print("=" * 50)
     print("🚀 VideoNet Pro 서버 시작")
     print("=" * 50)
-    print("📍 API Server: http://localhost:8000")
-    print("📍 API Docs: http://localhost:8000/docs")
-    print("🔌 Socket.IO: ws://localhost:8000/socket.io")
+    print("📍 API Server: http://localhost:7701")
+    print("📍 API Docs: http://localhost:7701/docs")
+    print("🔌 Socket.IO: ws://localhost:7701/socket.io")
     print("=" * 50)
     
     # 서버 실행
     uvicorn.run(
         fastapi_app, 
         host="0.0.0.0", 
-        port=8000,
+        port=7701,
         log_level="info"
     )

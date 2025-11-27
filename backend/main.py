@@ -9,10 +9,11 @@ from dotenv import load_dotenv
 # .env 파일 로드
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
+from starlette.middleware.base import BaseHTTPMiddleware
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
@@ -27,6 +28,15 @@ from socketio_server import socket_app
 from file_transfer import router as file_router
 from video_analysis import router as video_router
 
+class SocketIOBypassMiddleware(BaseHTTPMiddleware):
+    """Socket.IO 경로는 인증을 건너뛰는 미들웨어"""
+    async def dispatch(self, request: Request, call_next):
+        # Socket.IO 경로는 그대로 통과
+        if request.url.path.startswith("/socket.io"):
+            return await call_next(request)
+        return await call_next(request)
+
+
 # ===== 설정 =====
 SECRET_KEY = os.getenv("SECRET_KEY", "videonet-secret-key-2024")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
@@ -40,6 +50,10 @@ app = FastAPI(
     description="화상회의 플랫폼 API",
     version="2.0.0"
 )
+
+# ===== Socket.IO 우회 미들웨어 추가 (맨 먼저!) =====
+app.add_middleware(SocketIOBypassMiddleware)
+
 
 # CORS 설정
 app.add_middleware(
@@ -547,7 +561,23 @@ async def get_user_meetings(current_user = Depends(verify_token)):
 
 if __name__ == "__main__":
     import uvicorn
+    import socketio
+    from socketio_server import sio  # socket_app 대신 sio를 import
+    
+    # ✅ Socket.IO를 FastAPI 안에 포함 (미들웨어 우회)
+    socket_asgi_app = socketio.ASGIApp(
+        socketio_server=sio,
+        other_asgi_app=app,  # FastAPI 앱을 Socket.IO 안에 포함
+    )
+    
     port = int(os.getenv("PORT", "7701"))
+    print("=" * 60)
     print(f"🚀 VideoNet Pro Backend starting on port {port}")
     print(f"📝 20205146 한림대학교 콘텐츠IT 김재형 - AI+X 프로젝트")
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    print("=" * 60)
+    print(f"📍 API Server: http://localhost:{port}")
+    print(f"🔌 Socket.IO: ws://localhost:{port}/socket.io")
+    print("=" * 60)
+    
+    # ✅ socket_asgi_app 실행 (FastAPI 포함)
+    uvicorn.run(socket_asgi_app, host="0.0.0.0", port=port)
