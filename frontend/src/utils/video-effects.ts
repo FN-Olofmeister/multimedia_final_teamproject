@@ -31,6 +31,10 @@ export class VideoEffectProcessor {
   constructor() {
     // Canvas 생성
     this.canvas = document.createElement('canvas');
+    // 기본 크기 설정 (메타데이터 로드 전 fallback)
+    this.canvas.width = 640;
+    this.canvas.height = 480;
+    
     const ctx = this.canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) {
       throw new Error('Canvas 2D context를 생성할 수 없습니다.');
@@ -41,31 +45,58 @@ export class VideoEffectProcessor {
     this.videoElement = document.createElement('video');
     this.videoElement.autoplay = true;
     this.videoElement.muted = true;
+    this.videoElement.playsInline = true; // iOS 지원
   }
 
   /**
-   * 입력 스트림에 효과를 적용하여 새로운 스트림 반환
+   * 입력 스트림에 효과를 적용하여 새로운 스트림 반환 (비동기)
    */
-  public processStream(inputStream: MediaStream): MediaStream {
+  public async processStream(inputStream: MediaStream): Promise<MediaStream> {
     // 비디오 트랙 확인
     const videoTracks = inputStream.getVideoTracks();
     if (videoTracks.length === 0) {
-      console.warn('입력 스트림에 비디오 트랙이 없습니다.');
+      console.warn('[VideoEffects] 입력 스트림에 비디오 트랙이 없습니다.');
       return inputStream;
     }
+
+    // 기존 처리 중지
+    this.stop();
 
     // 비디오 엘리먼트에 스트림 연결
     this.videoElement.srcObject = inputStream;
 
-    // 비디오 메타데이터 로드 대기
-    this.videoElement.onloadedmetadata = () => {
-      // Canvas 크기 설정
-      this.canvas.width = this.videoElement.videoWidth;
-      this.canvas.height = this.videoElement.videoHeight;
+    // 비디오 메타데이터 로드 대기 (Promise)
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        console.warn('[VideoEffects] 메타데이터 로드 타임아웃, 기본 크기 사용');
+        resolve();
+      }, 3000);
 
-      // 애니메이션 프레임 시작
-      this.startProcessing();
-    };
+      this.videoElement.onloadedmetadata = () => {
+        clearTimeout(timeout);
+        // Canvas 크기 설정
+        const width = this.videoElement.videoWidth || 640;
+        const height = this.videoElement.videoHeight || 480;
+        this.canvas.width = width;
+        this.canvas.height = height;
+        console.log(`[VideoEffects] Canvas 크기 설정: ${width}x${height}`);
+        resolve();
+      };
+
+      this.videoElement.onerror = (e) => {
+        clearTimeout(timeout);
+        console.error('[VideoEffects] 비디오 로드 에러:', e);
+        reject(e);
+      };
+    });
+
+    // 비디오 재생 시작
+    try {
+      await this.videoElement.play();
+      console.log('[VideoEffects] 비디오 재생 시작');
+    } catch (err) {
+      console.error('[VideoEffects] 비디오 재생 실패:', err);
+    }
 
     // Canvas에서 스트림 생성 (30fps)
     this.outputStream = this.canvas.captureStream(30);
@@ -73,9 +104,13 @@ export class VideoEffectProcessor {
     // 오디오 트랙 복사 (효과 없이)
     const audioTracks = inputStream.getAudioTracks();
     audioTracks.forEach(track => {
-      this.outputStream?.addTrack(track);
+      this.outputStream?.addTrack(track.clone());
     });
 
+    // 애니메이션 프레임 시작
+    this.startProcessing();
+
+    console.log('[VideoEffects] 스트림 처리 시작 완료');
     return this.outputStream;
   }
 
@@ -360,18 +395,18 @@ export class VideoEffectProcessor {
       this.animationFrameId = null;
     }
 
-    // 비디오 중지
+    // 비디오 정리 (트랙은 중지하지 않음 - 원본 스트림 유지)
     if (this.videoElement.srcObject) {
-      const stream = this.videoElement.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
       this.videoElement.srcObject = null;
     }
 
-    // 출력 스트림 정리
+    // 출력 스트림의 비디오 트랙만 정리 (오디오는 원본이므로 유지)
     if (this.outputStream) {
-      this.outputStream.getTracks().forEach(track => track.stop());
+      this.outputStream.getVideoTracks().forEach(track => track.stop());
       this.outputStream = null;
     }
+    
+    console.log('[VideoEffects] 리소스 정리 완료');
   }
 
   /**

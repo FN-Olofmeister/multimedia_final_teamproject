@@ -1020,23 +1020,27 @@ export default function RoomPage() {
           // 로컬 비디오 엘리먼트 업데이트
           if (localVideoRef.current) {
             localVideoRef.current.srcObject = newStream;
+            localVideoRef.current.muted = true; // 로컬 비디오 음소거 (하울링 방지)
           }
 
-          // 모든 P2P 연결에 새 스트림 전송
+          // 모든 P2P 연결에 새 트랙 교체 (replaceTrack 사용 - 재협상 불필요)
           connectionsRef.current.forEach((connection, peerId) => {
             console.log(`[WebcamEffects] P2P 연결 ${peerId}에 새 스트림 적용`);
 
-            // 기존 트랙 제거
             const senders = connection.peerConnection?.getSenders() || [];
-            senders.forEach(sender => {
-              if (sender.track) {
-                connection.peerConnection?.removeTrack(sender);
-              }
-            });
+            const newVideoTrack = newStream.getVideoTracks()[0];
+            const newAudioTrack = newStream.getAudioTracks()[0];
 
-            // 새 트랙 추가
-            newStream.getTracks().forEach(track => {
-              connection.peerConnection?.addTrack(track, newStream);
+            senders.forEach(sender => {
+              if (sender.track?.kind === 'video' && newVideoTrack) {
+                sender.replaceTrack(newVideoTrack)
+                  .then(() => console.log(`[WebcamEffects] 비디오 트랙 교체 완료 (${peerId})`))
+                  .catch(err => console.error(`[WebcamEffects] 비디오 트랙 교체 실패:`, err));
+              } else if (sender.track?.kind === 'audio' && newAudioTrack) {
+                sender.replaceTrack(newAudioTrack)
+                  .then(() => console.log(`[WebcamEffects] 오디오 트랙 교체 완료 (${peerId})`))
+                  .catch(err => console.error(`[WebcamEffects] 오디오 트랙 교체 실패:`, err));
+              }
             });
           });
 

@@ -52,14 +52,22 @@ export class AudioEffectProcessor {
     // 오디오 트랙 확인
     const audioTracks = inputStream.getAudioTracks();
     if (audioTracks.length === 0) {
-      console.warn('입력 스트림에 오디오 트랙이 없습니다.');
+      console.warn('[AudioEffects] 입력 스트림에 오디오 트랙이 없습니다.');
       return inputStream;
     }
+
+    // 기존 리소스 정리
+    this.stop();
 
     this.originalStream = inputStream;
 
     // AudioContext 생성
     this.audioContext = new AudioContext();
+    
+    // AudioContext가 suspended 상태면 resume
+    if (this.audioContext.state === 'suspended') {
+      await this.audioContext.resume();
+    }
 
     // Source 노드 생성
     this.sourceNode = this.audioContext.createMediaStreamSource(inputStream);
@@ -79,9 +87,10 @@ export class AudioEffectProcessor {
     // 비디오 트랙 복사 (효과 없이)
     const videoTracks = inputStream.getVideoTracks();
     videoTracks.forEach(track => {
-      this.outputStream?.addTrack(track);
+      this.outputStream?.addTrack(track.clone());
     });
 
+    console.log('[AudioEffects] 스트림 처리 시작 완료');
     return this.outputStream;
   }
 
@@ -105,28 +114,33 @@ export class AudioEffectProcessor {
     this.feedbackGain.gain.value = this.effects.echoFeedback;
 
     this.echoGain = this.audioContext.createGain();
-    this.echoGain.gain.value = 0.5;
+    this.echoGain.gain.value = 0.7; // 에코 볼륨
 
     // Reverb (Convolver)
     this.convolverNode = this.audioContext.createConvolver();
     this.generateReverbImpulse(this.effects.reverbDecay);
 
     this.reverbGain = this.audioContext.createGain();
-    this.reverbGain.gain.value = 0.4;
+    this.reverbGain.gain.value = 0.5; // 리버브 볼륨
 
     // Dry/Wet Mix
     this.dryGain = this.audioContext.createGain();
-    this.dryGain.gain.value = 1.0;
+    this.dryGain.gain.value = 0.7; // 원본 소리
 
     this.wetGain = this.audioContext.createGain();
-    this.wetGain.gain.value = 0.0;
+    this.wetGain.gain.value = 0.7; // 효과 소리 (0.0에서 0.7로 변경!)
+    
+    console.log('[AudioEffects] 노드 초기화 완료');
   }
 
   /**
    * 노드 연결
    */
   private connectNodes(): void {
-    if (!this.sourceNode || !this.destinationNode) return;
+    if (!this.sourceNode || !this.destinationNode || !this.dryGain || !this.wetGain) return;
+
+    // 먼저 모든 연결 해제
+    this.disconnectNodes();
 
     let currentNode: AudioNode = this.sourceNode;
 
@@ -134,44 +148,44 @@ export class AudioEffectProcessor {
     if (this.effects.lowpass && this.lowpassFilter) {
       currentNode.connect(this.lowpassFilter);
       currentNode = this.lowpassFilter;
+      console.log('[AudioEffects] Low Pass Filter 연결');
     }
+
+    // 효과가 하나도 없으면 직접 연결
+    if (!this.effects.echo && !this.effects.reverb) {
+      currentNode.connect(this.destinationNode);
+      console.log('[AudioEffects] 직접 연결 (효과 없음)');
+      return;
+    }
+
+    // Dry signal (원본)
+    currentNode.connect(this.dryGain);
+    this.dryGain.connect(this.destinationNode);
 
     // Echo 연결
     if (this.effects.echo && this.delayNode && this.feedbackGain && this.echoGain) {
-      // Dry signal
-      currentNode.connect(this.dryGain!);
-
-      // Wet signal (echo)
       currentNode.connect(this.delayNode);
       this.delayNode.connect(this.feedbackGain);
       this.feedbackGain.connect(this.delayNode); // Feedback loop
       this.delayNode.connect(this.echoGain);
-      this.echoGain.connect(this.wetGain!);
-
-      // Mix
-      this.dryGain!.connect(this.destinationNode);
-      this.wetGain!.connect(this.destinationNode);
+      this.echoGain.connect(this.wetGain);
+      console.log('[AudioEffects] Echo 연결');
     }
-    // Reverb 연결
-    else if (this.effects.reverb && this.convolverNode && this.reverbGain) {
-      // Dry signal
-      currentNode.connect(this.dryGain!);
 
-      // Wet signal (reverb)
+    // Reverb 연결
+    if (this.effects.reverb && this.convolverNode && this.reverbGain) {
       currentNode.connect(this.convolverNode);
       this.convolverNode.connect(this.reverbGain);
-      this.reverbGain.connect(this.wetGain!);
-
-      // Mix
-      this.dryGain!.connect(this.destinationNode);
-      this.wetGain!.connect(this.destinationNode);
-    }
-    // 효과 없음 또는 필터만
-    else {
-      currentNode.connect(this.destinationNode);
+      this.reverbGain.connect(this.wetGain);
+      console.log('[AudioEffects] Reverb 연결');
     }
 
-    console.log('[AudioEffectProcessor] 노드 연결 완료');
+    // Wet signal 연결
+    if (this.effects.echo || this.effects.reverb) {
+      this.wetGain.connect(this.destinationNode);
+    }
+
+    console.log('[AudioEffects] 노드 연결 완료');
   }
 
   /**
@@ -291,13 +305,13 @@ export class AudioEffectProcessor {
     // AudioContext 닫기
     if (this.audioContext && this.audioContext.state !== 'closed') {
       this.audioContext.close().catch(err => {
-        console.error('[AudioEffectProcessor] AudioContext 종료 실패:', err);
+        console.error('[AudioEffects] AudioContext 종료 실패:', err);
       });
     }
 
-    // 출력 스트림 정리
+    // 출력 스트림의 오디오 트랙만 정리
     if (this.outputStream) {
-      this.outputStream.getTracks().forEach(track => track.stop());
+      this.outputStream.getAudioTracks().forEach(track => track.stop());
       this.outputStream = null;
     }
 
@@ -315,7 +329,7 @@ export class AudioEffectProcessor {
     this.wetGain = null;
     this.originalStream = null;
 
-    console.log('[AudioEffectProcessor] 리소스 정리 완료');
+    console.log('[AudioEffects] 리소스 정리 완료');
   }
 
   /**

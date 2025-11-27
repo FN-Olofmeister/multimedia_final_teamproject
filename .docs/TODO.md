@@ -7,7 +7,166 @@
 
 ## 🔴 P0 - 긴급 버그 (즉시 수정 필요)
 
-현재 없음 ✅
+### 🎬 웹캠 실시간 효과 버그 수정
+
+**증상:**
+1. 영상 효과 적용 시 카메라가 "연결중..."으로만 표시됨 (영상이 안 보임)
+2. 오디오 효과가 실제로 적용되지 않음 (소리 변화 없음)
+
+**원인 분석:**
+1. **영상 효과**: `VideoEffectProcessor.processStream()`에서 `onloadedmetadata` 이벤트가 비동기로 발생하는데, 스트림 반환 시점에 Canvas 크기가 0×0이라 빈 스트림 반환
+2. **오디오 효과**: `AudioEffectProcessor`에서 dry/wet 믹스의 wetGain이 0.0으로 설정되어 효과음이 들리지 않음
+3. **스트림 교체**: P2P 연결에서 트랙 교체 시 renegotiation이 필요한데 처리 안 됨
+
+---
+
+### 📋 수정 작업 체크리스트
+
+#### Step 1: video-effects.ts 수정
+**파일**: `frontend/src/utils/video-effects.ts`
+
+- [ ] **1-1. processStream을 async/await로 변경**
+  ```typescript
+  // 변경 전
+  public processStream(inputStream: MediaStream): MediaStream
+  
+  // 변경 후  
+  public async processStream(inputStream: MediaStream): Promise<MediaStream>
+  ```
+
+- [ ] **1-2. 비디오 메타데이터 로드 대기 추가**
+  ```typescript
+  // onloadedmetadata 대신 Promise로 대기
+  await new Promise<void>((resolve) => {
+    this.videoElement.onloadedmetadata = () => {
+      this.canvas.width = this.videoElement.videoWidth || 640;
+      this.canvas.height = this.videoElement.videoHeight || 480;
+      resolve();
+    };
+  });
+  
+  // play() 호출 추가
+  await this.videoElement.play();
+  ```
+
+- [ ] **1-3. 기본 Canvas 크기 설정 (fallback)**
+  ```typescript
+  // 비디오 크기가 0인 경우 기본값 사용
+  if (this.canvas.width === 0 || this.canvas.height === 0) {
+    this.canvas.width = 640;
+    this.canvas.height = 480;
+  }
+  ```
+
+---
+
+#### Step 2: audio-effects.ts 수정
+**파일**: `frontend/src/utils/audio-effects.ts`
+
+- [ ] **2-1. wetGain 초기값 수정**
+  ```typescript
+  // 변경 전
+  this.wetGain.gain.value = 0.0;
+  
+  // 변경 후
+  this.wetGain.gain.value = 0.5; // 효과음이 들리도록
+  ```
+
+- [ ] **2-2. 효과 비활성화 시 bypass 처리**
+  ```typescript
+  // 효과가 모두 꺼져있으면 직접 연결
+  if (!this.effects.lowpass && !this.effects.echo && !this.effects.reverb) {
+    this.sourceNode.connect(this.destinationNode);
+    return;
+  }
+  ```
+
+- [ ] **2-3. echo/reverb 동시 활성화 처리**
+  ```typescript
+  // 현재: echo OR reverb (else if)
+  // 변경: echo AND reverb 동시 지원
+  ```
+
+---
+
+#### Step 3: WebcamEffects.tsx 수정
+**파일**: `frontend/src/components/WebcamEffects.tsx`
+
+- [ ] **3-1. applyVideoEffects를 async로 수정**
+  ```typescript
+  // processStream이 Promise를 반환하므로 await 필요
+  const processedStream = await processor.processStream(localStream);
+  ```
+
+- [ ] **3-2. 원본 스트림 보존 로직 개선**
+  ```typescript
+  // 원본 스트림 clone하여 보존
+  if (localStream && !originalStreamRef.current) {
+    originalStreamRef.current = localStream.clone();
+  }
+  ```
+
+- [ ] **3-3. 효과 적용 후 미리보기 추가** (선택)
+  ```typescript
+  // 모달 내에 작은 비디오 프리뷰 추가
+  <video ref={previewRef} autoPlay muted className="w-48 h-36" />
+  ```
+
+---
+
+#### Step 4: RoomPage.tsx 스트림 교체 로직 수정
+**파일**: `frontend/src/pages/RoomPage.tsx`
+
+- [ ] **4-1. replaceTrack 사용으로 변경**
+  ```typescript
+  // 변경 전: removeTrack + addTrack (renegotiation 필요)
+  // 변경 후: replaceTrack 사용 (renegotiation 불필요)
+  
+  const senders = connection.peerConnection?.getSenders() || [];
+  newStream.getTracks().forEach(newTrack => {
+    const sender = senders.find(s => s.track?.kind === newTrack.kind);
+    if (sender) {
+      sender.replaceTrack(newTrack);
+    }
+  });
+  ```
+
+- [ ] **4-2. 로컬 비디오 muted 확인**
+  ```typescript
+  // 로컬 비디오는 항상 muted (하울링 방지)
+  if (localVideoRef.current) {
+    localVideoRef.current.srcObject = newStream;
+    localVideoRef.current.muted = true;
+  }
+  ```
+
+---
+
+#### Step 5: 테스트
+- [ ] **5-1. 영상 효과 테스트**
+  - 좌우 반전 → 화면에 반영되는지 확인
+  - 흑백 필터 → 흑백으로 보이는지 확인
+  - 네온 필터 → 색상 반전되는지 확인
+
+- [ ] **5-2. 오디오 효과 테스트**
+  - Low Pass Filter → 고음이 줄어드는지 확인
+  - Echo → 메아리 들리는지 확인
+  - Reverb → 잔향 들리는지 확인
+
+- [ ] **5-3. P2P 전송 테스트**
+  - 2개 브라우저 탭에서 효과 적용 후 상대방에게 보이는지 확인
+
+---
+
+### 예상 소요 시간
+| 작업 | 시간 |
+|------|------|
+| Step 1: video-effects.ts | 20분 |
+| Step 2: audio-effects.ts | 20분 |
+| Step 3: WebcamEffects.tsx | 15분 |
+| Step 4: RoomPage.tsx | 15분 |
+| Step 5: 테스트 | 20분 |
+| **총계** | **약 1시간 30분** |
 
 ---
 

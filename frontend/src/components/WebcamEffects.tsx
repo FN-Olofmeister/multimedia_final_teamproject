@@ -106,6 +106,11 @@ export default function WebcamEffects({
         videoProcessorRef.current.stop();
       }
 
+      // 원본 스트림 저장 (아직 저장 안됐으면)
+      if (!originalStreamRef.current) {
+        originalStreamRef.current = localStream;
+      }
+
       // 새 프로세서 생성
       const processor = new VideoEffectProcessor();
       videoProcessorRef.current = processor;
@@ -113,8 +118,8 @@ export default function WebcamEffects({
       // 효과 설정
       processor.updateEffects(videoEffects);
 
-      // 스트림 처리
-      const processedStream = processor.processStream(localStream);
+      // 스트림 처리 (비동기 - 메타데이터 로딩 대기)
+      const processedStream = await processor.processStream(localStream);
 
       // 스트림 업데이트
       onStreamUpdate(processedStream);
@@ -139,6 +144,11 @@ export default function WebcamEffects({
       // 기존 프로세서가 있으면 정리
       if (audioProcessorRef.current) {
         audioProcessorRef.current.stop();
+      }
+
+      // 원본 스트림 저장 (아직 저장 안됐으면)
+      if (!originalStreamRef.current) {
+        originalStreamRef.current = localStream;
       }
 
       // 새 프로세서 생성
