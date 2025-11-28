@@ -1,5 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+
+  darkMode: ['class', '[data-theme="dark"]'],   // ⭐ 추가해야 함!
+  
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",

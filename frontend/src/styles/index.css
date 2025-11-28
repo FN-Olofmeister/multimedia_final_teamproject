@@ -2,15 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 기본 레이어 - HTML 요소들의 기본 스타일 설정 */
+/* =========================================
+   BASE 레이어 - HTML 기본 스타일
+   ========================================= */
 @layer base {
-  /* 모든 요소에 부드러운 스크롤 적용 */
+  /* 부드러운 스크롤 */
   html {
     scroll-behavior: smooth;
   }
 
-  /* 기본 body 스타일 - Discord 다크 테마 */
-  body {
+  /* ☀️ 라이트 모드 */
+  html[data-theme='light'] body {
+    @apply bg-gray-50 text-gray-900;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* 🌙 다크 모드 */
+  html[data-theme='dark'] body {
     @apply bg-discord-dark text-gray-100;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
       'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -19,34 +31,76 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* 스크롤바 커스터마이징 - Discord 스타일 */
-  ::-webkit-scrollbar {
+  /* 기본 스크롤바 - 라이트 테마 */
+  html[data-theme='light'] ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
+  html[data-theme='light'] ::-webkit-scrollbar-track {
+    @apply bg-gray-200;
+  }
+  html[data-theme='light'] ::-webkit-scrollbar-thumb {
+    @apply bg-gray-400 rounded-full;
+  }
+  html[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-500;
+  }
 
-  ::-webkit-scrollbar-track {
+  /* 다크 모드 스크롤바 */
+  html[data-theme='dark'] ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  html[data-theme='dark'] ::-webkit-scrollbar-track {
     @apply bg-discord-darker;
   }
-
-  ::-webkit-scrollbar-thumb {
+  html[data-theme='dark'] ::-webkit-scrollbar-thumb {
     @apply bg-gray-600 rounded-full;
   }
-
-  ::-webkit-scrollbar-thumb:hover {
+  html[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
     @apply bg-gray-500;
   }
 }
 
-/* 컴포넌트 레이어 - 재사용 가능한 컴포넌트 스타일 */
+/* =========================================
+   COMPONENTS 레이어 - 재사용 컴포넌트 스타일
+   ========================================= */
 @layer components {
-  /* Discord 스타일 버튼 */
+  /* Discord 스타일 버튼 (라이트/다크 공통) */
+  .dashboard-root {
+    @apply bg-gray-50 text-gray-900;
+  }
+  :root[data-theme='dark'] .dashboard-root {
+    @apply bg-discord-dark text-gray-100;
+  }
+
+  /* 사이드바 */
+  .dashboard-sidebar {
+    @apply bg-white border-r border-gray-200;
+  }
+  :root[data-theme='dark'] .dashboard-sidebar {
+    @apply bg-discord-darker border-gray-800;
+  }
+
+  /* 카드(회의 리스트, 빈 상태 카드 등) */
+  .dashboard-card {
+    @apply bg-white border border-gray-200;
+  }
+  :root[data-theme='dark'] .dashboard-card {
+    @apply bg-discord-light border-gray-700;
+  }
+}
+#추가부분
+
   .btn-discord {
     @apply px-4 py-2 bg-discord-brand text-white rounded-md 
            hover:bg-discord-brandHover transition-colors duration-200
            font-medium text-sm focus:outline-none focus:ring-2 
            focus:ring-discord-brand focus:ring-offset-2 
-           focus:ring-offset-discord-dark;
+           focus:ring-offset-gray-50;
+  }
+  html[data-theme='dark'] .btn-discord {
+    @apply focus:ring-offset-discord-dark;
   }
 
   /* Zoom 스타일 버튼 */
@@ -55,7 +109,10 @@
            hover:bg-zoom-hover transition-colors duration-200
            font-medium text-sm focus:outline-none focus:ring-2 
            focus:ring-zoom-blue focus:ring-offset-2 
-           focus:ring-offset-discord-dark;
+           focus:ring-offset-gray-50;
+  }
+  html[data-theme='dark'] .btn-zoom {
+    @apply focus:ring-offset-discord-dark;
   }
 
   /* 비디오 그리드 컨테이너 */
@@ -63,32 +120,46 @@
     @apply grid gap-2 p-4 h-full w-full;
   }
 
-  /* 비디오 타일 */
+  /* 비디오 타일 - 라이트 기본 */
   .video-tile {
-    @apply relative bg-discord-darker rounded-lg overflow-hidden
-           border border-gray-700 hover:border-gray-600 
-           transition-all duration-200;
+    @apply relative bg-white rounded-lg overflow-hidden
+           border border-gray-200 hover:border-gray-300 
+           shadow-sm transition-all duration-200;
+  }
+  /* 다크 모드용 비디오 타일 */
+  html[data-theme='dark'] .video-tile {
+    @apply bg-discord-darker border-gray-700 hover:border-gray-600 shadow-none;
   }
 
   /* 사이드바 아이템 */
   .sidebar-item {
-    @apply flex items-center px-3 py-2 rounded-md text-gray-400
-           hover:bg-discord-hover hover:text-gray-100
+    @apply flex items-center px-3 py-2 rounded-md text-gray-700
+           hover:bg-gray-200 hover:text-gray-900
            transition-all duration-200 cursor-pointer;
+  }
+  html[data-theme='dark'] .sidebar-item {
+    @apply text-gray-400 hover:bg-discord-hover hover:text-gray-100;
   }
 
   /* 채팅 메시지 */
   .chat-message {
-    @apply flex items-start px-4 py-2 hover:bg-discord-hover
+    @apply flex items-start px-4 py-2 hover:bg-gray-100
            transition-colors duration-200;
+  }
+  html[data-theme='dark'] .chat-message {
+    @apply hover:bg-discord-hover;
   }
 
   /* 입력 필드 */
   .input-field {
-    @apply w-full px-3 py-2 bg-discord-darker text-gray-100
-           border border-gray-700 rounded-md
+    @apply w-full px-3 py-2 bg-white text-gray-900
+           border border-gray-300 rounded-md
            focus:outline-none focus:border-discord-brand
-           placeholder-gray-500 transition-colors duration-200;
+           placeholder-gray-400 transition-colors duration-200;
+  }
+  html[data-theme='dark'] .input-field {
+    @apply bg-discord-darker text-gray-100
+           border-gray-700 placeholder-gray-500;
   }
 
   /* 모달 오버레이 */
@@ -99,14 +170,18 @@
 
   /* 모달 컨텐츠 */
   .modal-content {
-    @apply bg-discord-light rounded-lg shadow-xl p-6
+    @apply bg-white rounded-lg shadow-xl p-6
            max-w-md w-full mx-4 animate-scale-up;
   }
-}
+  html[data-theme='dark'] .modal-content {
+    @apply bg-discord-light;
+  }
 
-/* 유틸리티 레이어 - 특별한 유틸리티 클래스 */
+
+/* =========================================
+   UTILITIES 레이어 - 유틸 클래스
+   ========================================= */
 @layer utilities {
-  /* 텍스트 선택 방지 */
   .no-select {
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -114,7 +189,6 @@
     user-select: none;
   }
 
-  /* 드래그 방지 */
   .no-drag {
     -webkit-user-drag: none;
     -khtml-user-drag: none;
@@ -123,69 +197,35 @@
     user-drag: none;
   }
 
-  /* 부드러운 전환 효과 */
   .transition-smooth {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* 글로우 효과 */
   .glow {
     box-shadow: 0 0 20px rgba(88, 101, 242, 0.4);
   }
 
-  /* 비디오 그리드 레이아웃 - 참가자 수에 따른 동적 그리드 */
-  .grid-1 {
-    grid-template-columns: 1fr;
-  }
+  .grid-1 { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3, .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .grid-5, .grid-6 { grid-template-columns: repeat(3, 1fr); }
+  .grid-7, .grid-8, .grid-9 { grid-template-columns: repeat(3, 1fr); }
+  .grid-10, .grid-11, .grid-12 { grid-template-columns: repeat(4, 1fr); }
 
-  .grid-2 {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .grid-3, .grid-4 {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .grid-5, .grid-6 {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .grid-7, .grid-8, .grid-9 {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .grid-10, .grid-11, .grid-12 {
-    grid-template-columns: repeat(4, 1fr);
-  }
-
-  /* 큰 화면용 그리드 */
   @media (min-width: 1024px) {
-    .grid-3 {
-      grid-template-columns: repeat(3, 1fr);
-    }
-    
-    .grid-4 {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .grid-7, .grid-8 {
-      grid-template-columns: repeat(4, 1fr);
-    }
-    
-    .grid-9 {
-      grid-template-columns: repeat(3, 1fr);
-    }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .grid-7, .grid-8 { grid-template-columns: repeat(4, 1fr); }
+    .grid-9 { grid-template-columns: repeat(3, 1fr); }
   }
 }
 
-/* 애니메이션 관련 스타일 */
+/* =========================================
+   애니메이션 / 기타
+   ========================================= */
 @keyframes pulse-dot {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .pulse-dot {

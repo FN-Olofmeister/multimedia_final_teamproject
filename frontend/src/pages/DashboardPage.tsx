@@ -22,7 +22,7 @@ import toast from 'react-hot-toast';
 import io, { Socket } from 'socket.io-client';
 
 export default function DashboardPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, theme, toggleTheme } = useAuth(); // theme, toggleTheme 추가
   const navigate = useNavigate();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -145,9 +145,9 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-discord-dark flex">
+     <div className="min-h-screen flex dashboard-root"> 
       {/* 사이드바 */}
-      <aside className="w-64 bg-discord-darker border-r border-gray-800 flex flex-col">
+      <aside className="w-64 flex flex-col dashboard-sidebar"> 
         {/* 사용자 프로필 */}
         <div className="p-4 border-b border-gray-800">
           <div className="flex items-center space-x-3">
@@ -157,8 +157,12 @@ export default function DashboardPage() {
               </span>
             </div>
             <div className="flex-1">
-              <p className="text-white font-medium">{user?.username}</p>
-              <p className="text-xs text-gray-400">{user?.email}</p>
+              <p className="text-m font-semibold text-gray-900 dark:text-white">
+                {user?.username}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {user?.email}
+              </p>
             </div>
           </div>
         </div>
@@ -179,7 +183,9 @@ export default function DashboardPage() {
               className="sidebar-item w-full"
             >
               <Cog6ToothIcon className="w-5 h-5 mr-3" />
+              <h2 className="text-s font-lighttext-gray-900 dark:text-gray-100">
               설정
+              </h2>
             </button>
           </div>
         </nav>
@@ -200,7 +206,9 @@ export default function DashboardPage() {
       <main className="flex-1 p-8">
         {/* 헤더 */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">대시보드</h1>
+          <h1 className="text-gray-900 dark:text-gray-100 text-3xl font-bold">
+          대시보드
+          </h1>
           <p className="text-gray-400">
             회의실을 만들거나 참가해보세요
           </p>
@@ -248,7 +256,7 @@ export default function DashboardPage() {
 
         {/* 활성 회의실 목록 */}
         <div>
-          <h2 className="text-xl font-semibold text-white mb-4">
+          <h2 className="text-xl font-semibold text-gray-700 dark:text-white mb-4">
             활성 회의실
           </h2>
           
@@ -263,11 +271,14 @@ export default function DashboardPage() {
                   key={room.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-discord-light rounded-lg p-4 border border-gray-700 hover:border-discord-brand transition-colors"
+                  className="dashboard-card rounded-lg p-4 hover:border-discord-brand transition-colors" // 수정부분
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <h3 className="text-white font-medium">{room.name}</h3>
+                      <h3 className="font-medium text-gray-900 dark:text-white">
+                        {room.name}
+                      </h3>
+
                       <p className="text-sm text-gray-400">
                         {(room as any).participantCount || 0}/{room.maxParticipants}명 참가 중
                       </p>
@@ -299,7 +310,7 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-discord-light rounded-lg border border-gray-700">
+            <div className="text-center py-12 dashboard-card rounded-lg"> 
               <VideoCameraIcon className="w-12 h-12 text-gray-600 mx-auto mb-3" />
               <p className="text-gray-400">활성 회의실이 없습니다</p>
               <p className="text-sm text-gray-500 mt-1">
@@ -394,7 +405,7 @@ export default function DashboardPage() {
                   <ClipboardDocumentCheckIcon className="w-8 h-8 text-white" />
                 </div>
                 
-                <h2 className="text-xl font-semibold text-white mb-2">
+                <h2 className="text-xl font-semibold  mb-2 text-gray-900 dark:text-white ">
                   내 개인 참가 코드
                 </h2>
                 
@@ -402,7 +413,7 @@ export default function DashboardPage() {
                   이 코드를 공유하여 다른 사람을 초대하세요
                 </p>
 
-                <div className="bg-discord-darker rounded-lg p-4 mb-4">
+                <div className="rounded-lg p-4 mb-4 bg-gray-100 dark:bg-discord-darker">
                   <p className="text-2xl font-mono text-discord-brand">
                     {user?.personalCode}
                   </p>
@@ -438,7 +449,7 @@ export default function DashboardPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-white">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">
                   설정
                 </h2>
                 <button
@@ -452,31 +463,38 @@ export default function DashboardPage() {
               <div className="space-y-4">
                 {/* 사용자 정보 */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-2">사용자 정보</h3>
-                  <div className="bg-discord-darker rounded-lg p-4 space-y-3">
+                  <h3 className="text-sm font-medium mb-2 text-gray-500 dark:text-gray-100">사용자 정보</h3>
+                  <div className="rounded-lg p-4 space-y-3 bg-gray-100 dark:bg-discord-darker">
                     <div className="flex justify-between">
-                      <span className="text-gray-400">이름</span>
-                      <span className="text-white">{user?.username}</span>
+                      <span className="text-gray-700 dark:text-gray-400">이름</span>
+                      <span className="text-gray-700 dark: text-white">{user?.username}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">이메일</span>
-                      <span className="text-white">{user?.email}</span>
+                      <span className="text-gray-700 dark:text-gray-400">이메일</span>
+                      <span className="text-gray-700 dark:text-white">{user?.email}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">개인 코드</span>
-                      <span className="text-white font-mono">{user?.personalCode}</span>
+                      <span className="text-gray-700 dark:text-gray-400">개인 코드</span>
+                      <span className="font-mono text-gray-700 dark: text-white ">{user?.personalCode}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* 테마 설정 */}
+                {/* 테마 설정 */} 
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-2">테마</h3>
-                  <div className="bg-discord-darker rounded-lg p-4">
+                  <h3 className="text-sm font-medium mb-2 text-gray-500 dark:text-gray-100">테마</h3>
+                  <div className="rounded-lg p-4 bg-gray-100 dark:bg-discord-darker">
                     <label className="flex items-center justify-between">
-                      <span className="text-gray-400">다크 모드</span>
-                      <button className="px-3 py-1 rounded bg-discord-brand text-white text-sm">
-                        켜짐
+                      <span className="text-gray-700 dark:text-gray-400">다크 모드</span>
+                      <button
+                        onClick={toggleTheme}
+                        className={`px-3 py-1 rounded text-sm font-medium transition
+                          ${theme === 'dark'
+                            ? 'bg-discord-brand text-white'
+                            : 'bg-gray-300 text-gray-800'
+                          }`}
+                      >
+                        {theme === 'dark' ? '켜짐' : '꺼짐'}
                       </button>
                     </label>
                   </div>
@@ -484,16 +502,16 @@ export default function DashboardPage() {
 
                 {/* 알림 설정 */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-2">알림</h3>
-                  <div className="bg-discord-darker rounded-lg p-4 space-y-3">
+                  <h3 className="text-sm font-medium  mb-2 text-gray-500 dark:text-gray-100">알림</h3>
+                  <div className="rounded-lg p-4 space-y-3 bg-gray-100 dark:bg-discord-darker">
                     <label className="flex items-center justify-between">
-                      <span className="text-gray-400">새 메시지 알림</span>
+                      <span className="text-gray-700 dark:text-gray-400">새 메시지 알림</span>
                       <button className="px-3 py-1 rounded bg-green-600 text-white text-sm">
                         켜짐
                       </button>
                     </label>
                     <label className="flex items-center justify-between">
-                      <span className="text-gray-400">회의 참가 알림</span>
+                      <span className="text-gray-700 dark:text-gray-400">회의 참가 알림</span>
                       <button className="px-3 py-1 rounded bg-green-600 text-white text-sm">
                         켜짐
                       </button>

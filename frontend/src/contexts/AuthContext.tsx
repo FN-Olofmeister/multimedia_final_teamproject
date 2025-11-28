@@ -9,15 +9,22 @@ import toast from 'react-hot-toast';
 import { authApi, getErrorMessage } from '@/utils/api';
 import type { User, LoginRequest, RegisterRequest } from '@/types';
 
-// 인증 컨텍스트 타입 정의
+// 🔹 다크모드용 타입
+type Theme = 'light' | 'dark';
+
+// 🔹 인증 컨텍스트 타입 정의
 interface AuthContextType {
   user: User | null;           // 현재 로그인한 사용자
   isLoading: boolean;          // 로딩 상태
   isAuthenticated: boolean;    // 인증 여부
-  login: (data: LoginRequest) => Promise<void>;      // 로그인 함수
+  login: (data: LoginRequest) => Promise<void>;       // 로그인 함수
   register: (data: RegisterRequest) => Promise<void>; // 회원가입 함수
-  logout: () => Promise<void>;                       // 로그아웃 함수
-  refreshUser: () => Promise<void>;                  // 사용자 정보 새로고침
+  logout: () => Promise<void>;                        // 로그아웃 함수
+  refreshUser: () => Promise<void>;                   // 사용자 정보 새로고침
+
+  // 🔹 테마 관련 추가
+  theme: Theme;                // 현재 테마
+  toggleTheme: () => void;     // 다크모드 토글 함수
 }
 
 // 컨텍스트 생성
@@ -27,6 +34,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // 🔹 테마 상태 (localStorage에 저장/복원)
+  const [theme, setTheme] = useState<Theme>(
+    (localStorage.getItem('theme') as Theme) || 'light'
+  );
+
   const navigate = useNavigate();
 
   // 컴포넌트 마운트 시 localStorage에서 사용자 정보 복원
@@ -60,6 +73,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initAuth();
   }, []);
+
+  // 🔹 테마가 바뀔 때마다 <html data-theme="..."> 적용 + 저장
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  // 🔹 다크모드 토글 함수
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+  };
 
   /**
    * 로그인 함수
@@ -151,6 +175,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     refreshUser,
+
+    // 🔹 테마 관련 추가
+    theme,
+    toggleTheme,
   };
 
   return (

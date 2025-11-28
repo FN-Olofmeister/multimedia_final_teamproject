@@ -23,6 +23,7 @@ import api from '@/utils/api';
 import toast from 'react-hot-toast';
 import CompressionAnalysis from './CompressionAnalysis';
 import CompressionQualitySlider from './CompressionQualitySlider';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface FileTransferProps {
   roomId: string;
@@ -39,6 +40,9 @@ interface TransferStats {
 }
 
 export default function FileTransfer({ roomId, socket, myUserId }: FileTransferProps) {
+  // 🔹 전역 다크모드 상태 가져오기
+  const { theme, toggleTheme } = useAuth();
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isTransferring, setIsTransferring] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -319,6 +323,19 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
 
   return (
     <div className="bg-discord-light rounded-lg p-6 space-y-4">
+      {/* 🔥 다크모드 토글 버튼 (테스트/실사용 겸용) */}
+      <div className="flex justify-end mb-1">
+        <button
+          onClick={toggleTheme}
+          className={`px-3 py-1 rounded text-xs font-medium transition
+                      ${theme === 'dark'
+                        ? 'bg-discord-brand text-white'
+                        : 'bg-gray-300 text-gray-800'}`}
+        >
+          다크 모드: {theme === 'dark' ? '켜짐' : '꺼짐'}
+        </button>
+      </div>
+
       <h3 className="text-xl font-bold text-white flex items-center">
         <DocumentArrowUpIcon className="w-6 h-6 mr-2" />
         파일 전송
@@ -331,6 +348,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
           type="file"
           onChange={handleFileSelect}
           className="hidden"
+          accept="*/*"
           accept="*/*"
         />
         <button
