@@ -321,11 +321,23 @@ export class NativeWebRTCConnection {
     return this.connectionState;
   }
 
+  getSignalingState(): RTCSignalingState {
+    return this.pc?.signalingState || 'closed';
+  }
+
   getCurrentLocalStream(): MediaStream | null {
     return this.localStream;
   }
 
   getRemoteStream(): MediaStream | null {
     return this.remoteStream;
+  }
+
+  getPeerConnection(): RTCPeerConnection | null {
+    return this.pc;
+  }
+
+  getSenders(): RTCRtpSender[] {
+    return this.pc?.getSenders() ?? [];
   }
 }

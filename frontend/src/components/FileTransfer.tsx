@@ -17,9 +17,12 @@ import {
   SignalIcon,
   FilmIcon,
   MagnifyingGlassIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import api from '@/utils/api';
 import toast from 'react-hot-toast';
+import CompressionAnalysis from './CompressionAnalysis';
+import CompressionQualitySlider from './CompressionQualitySlider';
 
 interface FileTransferProps {
   roomId: string;
@@ -50,6 +53,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [compressionQuality, setCompressionQuality] = useState(70);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -209,7 +213,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
       formData.append('original_file', selectedFile);
       formData.append('received_file', receivedFile);
 
-      const response = await axios.post('/api/video/verify', formData, {
+      const response = await api.post('/video/verify', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
@@ -248,7 +252,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
 
       toast('동영상 분석 중... (GPT Vision API 사용)', { icon: '🤖' });
 
-      const response = await axios.post('/api/video/analyze', formData, {
+      const response = await api.post('/video/analyze', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
@@ -286,7 +290,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
     setIsChatLoading(true);
     try {
       // GPT API로 추가 질문 전송 (전체 채팅 히스토리 포함)
-      const response = await axios.post('/api/video/chat', {
+      const response = await api.post('/video/chat', {
         question: userMessage,
         analysisResult: analysisResult,
         videoInfo: {
@@ -327,7 +331,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
           type="file"
           onChange={handleFileSelect}
           className="hidden"
-          accept="video/*,*/*"
+          accept="*/*"
         />
         <button
           onClick={() => fileInputRef.current?.click()}
@@ -421,6 +425,21 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
             <p className="text-gray-300">크기 일치: {verificationResult.file_size_match ? '✅' : '❌'}</p>
             <p className="text-gray-300">검증 시간: {verificationResult.verification_time.toFixed(2)}초</p>
           </div>
+        </div>
+      )}
+
+      {/* 압축 품질 조절 (이미지/영상 파일만) */}
+      {selectedFile && (selectedFile.type.includes('image') || selectedFile.type.includes('video')) && (
+        <div className="space-y-4">
+          <CompressionQualitySlider
+            quality={compressionQuality}
+            onChange={setCompressionQuality}
+            showMetrics={false}
+          />
+          <CompressionAnalysis
+            file={selectedFile}
+            fileType={selectedFile.type.includes('video') ? 'video' : 'image'}
+          />
         </div>
       )}
 

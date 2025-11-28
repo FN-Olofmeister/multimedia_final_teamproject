@@ -23,9 +23,11 @@ import secrets
 import string
 from contextlib import contextmanager
 import uvicorn
-from socketio_server import socket_app
+import socketio
+from socketio_server import sio, socket_app, get_all_room_participants, notify_room_list_update
 from file_transfer import router as file_router
 from video_analysis import router as video_router
+from image_compression import router as compression_router
 
 # ===== 설정 =====
 SECRET_KEY = os.getenv("SECRET_KEY", "videonet-secret-key-2024")
@@ -55,6 +57,9 @@ app.include_router(file_router)
 
 # 동영상 분석 라우터 추가
 app.include_router(video_router)
+
+# 이미지 압축 및 품질 평가 라우터 추가
+app.include_router(compression_router)
 
 # ===== 보안 설정 =====
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -181,7 +186,7 @@ def generate_room_code() -> str:
 async def startup():
     """서버 시작시 실행"""
     init_database()
-    print("✅ VideoNet Pro 서버 시작!")
+    print("[OK] VideoNet Pro 서버 시작!")
 
 @app.get("/")
 async def root():
@@ -399,25 +404,32 @@ async def get_rooms(current_user = Depends(verify_token)):
     """모든 활성 방 목록"""
     with get_db() as conn:
         cursor = conn.execute("""
-            SELECT m.*, u.username as host_name 
-            FROM meetings m 
-            JOIN users u ON m.host_id = u.id 
+            SELECT m.*, u.username as host_name
+            FROM meetings m
+            JOIN users u ON m.host_id = u.id
             WHERE m.status = 'active'
         """)
         meetings = cursor.fetchall()
-        
+
+        # Socket.IO로부터 실시간 참가자 수 가져오기
+        room_participant_counts = get_all_room_participants()
+
         rooms = []
         for meeting in meetings:
+            room_id = str(meeting['id'])
+            participant_count = room_participant_counts.get(room_id, 0)
+
             rooms.append({
-                "id": str(meeting['id']),
+                "id": room_id,
                 "name": meeting['title'],
                 "hostId": str(meeting['host_id']),
-                "participants": [],  
+                "participants": [],
+                "participantCount": participant_count,  # 실시간 참가자 수 추가
                 "isPrivate": bool(meeting['password']),
                 "maxParticipants": 100,
                 "createdAt": meeting['created_at']
             })
-        
+
         return rooms
 
 @app.post("/api/rooms")
@@ -438,7 +450,10 @@ async def create_room(room: RoomCreate, current_user = Depends(verify_token)):
         ))
         
         room_id = cursor.lastrowid
-        
+
+        # Socket.IO로 방 리스트 업데이트 알림
+        await notify_room_list_update()
+
         return {
             "id": str(room_id),
             "name": room.name,
@@ -545,9 +560,19 @@ async def get_user_meetings(current_user = Depends(verify_token)):
             ]
         }
 
+# ===== Socket.IO와 FastAPI 통합 =====
+# Socket.IO ASGIApp에 FastAPI 앱을 통합
+# 이렇게 하면 Socket.IO와 FastAPI가 같은 포트에서 함께 작동
+combined_app = socketio.ASGIApp(sio, other_asgi_app=app)
+
 if __name__ == "__main__":
-    import uvicorn
     port = int(os.getenv("PORT", "7701"))
+    print("=" * 60)
     print(f"🚀 VideoNet Pro Backend starting on port {port}")
     print(f"📝 20205146 한림대학교 콘텐츠IT 김재형 - AI+X 프로젝트")
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    print("=" * 60)
+    print(f"📍 REST API: http://localhost:{port}")
+    print(f"📍 API Docs: http://localhost:{port}/docs")
+    print(f"🔌 Socket.IO: ws://localhost:{port}/socket.io")
+    print("=" * 60)
+    uvicorn.run(combined_app, host="0.0.0.0", port=port)
