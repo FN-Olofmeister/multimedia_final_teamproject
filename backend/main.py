@@ -29,6 +29,10 @@ from file_transfer import router as file_router
 from video_analysis import router as video_router
 from image_compression import router as compression_router
 
+# ✅ CORS 헤더 추가를 위한 임포트
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
+
 # ===== 설정 =====
 SECRET_KEY = os.getenv("SECRET_KEY", "videonet-secret-key-2024")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
@@ -43,7 +47,7 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# CORS 설정
+# ✅ CORS 미들웨어 (기존)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -560,16 +564,45 @@ async def get_user_meetings(current_user = Depends(verify_token)):
             ]
         }
 
+# ===== CORS 헤더 미들웨어 =====
+# ✅ Socket.IO ASGIApp이 FastAPI를 감싸면서 CORS 헤더가 손실되는 문제 해결
+class AddCORSHeaders(BaseHTTPMiddleware):
+    """모든 응답에 CORS 헤더를 추가하는 미들웨어"""
+    async def dispatch(self, request, call_next):
+        # OPTIONS 요청 처리 (preflight request)
+        if request.method == "OPTIONS":
+            return Response(
+                status_code=200,
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Credentials": "true",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, Origin",
+                    "Access-Control-Max-Age": "3600",
+                }
+            )
+        
+        # 일반 요청 처리
+        response = await call_next(request)
+        
+        # 모든 응답에 CORS 헤더 추가
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept, Origin"
+        
+        return response
+
 # ===== Socket.IO와 FastAPI 통합 =====
-# Socket.IO ASGIApp에 FastAPI 앱을 통합
-# 이렇게 하면 Socket.IO와 FastAPI가 같은 포트에서 함께 작동
-combined_app = socketio.ASGIApp(sio, other_asgi_app=app)
+combined_app = socketio.ASGIApp(sio, other_asgi_app=app, socketio_path="/socket.io")
+
+# ✅ CORS 헤더 미들웨어 추가
+combined_app.add_middleware(AddCORSHeaders)
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "7701"))
     print("=" * 60)
     print(f"🚀 VideoNet Pro Backend starting on port {port}")
-    print(f"📝 20205146 한림대학교 콘텐츠IT 김재형 - AI+X 프로젝트")
     print("=" * 60)
     print(f"📍 REST API: http://localhost:{port}")
     print(f"📍 API Docs: http://localhost:{port}/docs")
