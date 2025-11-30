@@ -560,67 +560,13 @@ async def get_user_meetings(current_user = Depends(verify_token)):
             ]
         }
 
-# ===== ASGI 레벨 CORS 미들웨어 =====
-# ✅ Socket.IO를 완전히 우회할 수 없는 가장 저수준의 CORS 처리
-class ASGICORSMiddleware:
-    """ASGI 레벨에서 CORS 헤더를 처리하는 미들웨어"""
-    
-    CORS_HEADERS = [
-        (b'access-control-allow-origin', b'*'),
-        (b'access-control-allow-methods', b'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS'),
-        (b'access-control-allow-headers', b'Content-Type,Authorization,Accept,Origin'),
-        (b'access-control-allow-credentials', b'true'),
-        (b'access-control-max-age', b'3600'),
-        (b'vary', b'Origin'),
-    ]
-    
-    def __init__(self, app):
-        self.app = app
-    
-    async def __call__(self, scope, receive, send):
-        # HTTP가 아니면 그냥 통과
-        if scope['type'] != 'http':
-            await self.app(scope, receive, send)
-            return
-        
-        # 모든 HTTP 요청에 CORS 헤더 추가
-        path = scope.get('path', '')
-        method = scope.get('method', '')
-        
-        # OPTIONS 요청 즉시 처리 (preflight request)
-        if method == 'OPTIONS':
-            print(f'[CORS] OPTIONS 요청: {path}')
-            await send({
-                'type': 'http.response.start',
-                'status': 200,
-                'headers': self.CORS_HEADERS,
-            })
-            await send({
-                'type': 'http.response.body',
-                'body': b'',
-            })
-            return
-        
-        # 일반 요청 처리
-        async def send_with_cors(message):
-            if message['type'] == 'http.response.start':
-                headers = list(message.get('headers', []))
-                # 기존 CORS 헤더 제거 (중복 방지)
-                headers = [h for h in headers if not h[0].lower().startswith(b'access-control')]
-                # CORS 헤더 추가
-                for header in self.CORS_HEADERS:
-                    if header not in headers:
-                        headers.append(header)
-                message['headers'] = headers
-            await send(message)
-        
-        await self.app(scope, receive, send_with_cors)
 
 # ===== Socket.IO와 FastAPI 통합 =====
-combined_app = socketio.ASGIApp(sio, other_asgi_app=app, socketio_path="/socket.io")
-
-# ✅ ASGI 미들웨어로 감싸기 (가장 저수준 - Socket.IO 완전 우회 불가)
-combined_app = ASGICORSMiddleware(combined_app)
+combined_app = socketio.ASGIApp(
+    sio, 
+    other_asgi_app=app, 
+    socketio_path="/socket.io"
+)
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "7701"))
