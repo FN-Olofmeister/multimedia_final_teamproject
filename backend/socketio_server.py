@@ -11,6 +11,7 @@ import json
 sio = socketio.AsyncServer(
     async_mode='asgi',
     cors_allowed_origins='*',  # 프로덕션에서는 특정 도메인으로 제한
+    cors_credentials=True,
     logger=True,
     engineio_logger=True
 )
