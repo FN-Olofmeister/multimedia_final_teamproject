@@ -332,4 +332,9 @@ export class NativeWebRTCConnection {
   getRemoteStream(): MediaStream | null {
     return this.remoteStream;
   }
+
+  // PeerConnection 직접 접근 (replaceTrack 등을 위함)
+  get peerConnection(): RTCPeerConnection | null {
+    return this.pc;
+  }
 }

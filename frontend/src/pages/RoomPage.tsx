@@ -43,7 +43,7 @@ interface VideoStream {
 
 export default function RoomPage() {
   const { roomId } = useParams<{ roomId: string }>();
-  const { user } = useAuth();
+  const { user, theme } = useAuth();
   const navigate = useNavigate();
 
   // 상태 관리
@@ -72,9 +72,13 @@ export default function RoomPage() {
   useEffect(() => {
     if (!roomId || !user) return;
 
-    // 이미 초기화되었으면 스킵
-    if (socketRef.current?.connected) {
-      console.log('Socket already connected, skipping initialization');
+    // 이미 초기화되었고 소켓 연결이 활성 상태면 스킵
+    // (이슈 3: 재입장 시에도 초기화 되도록 조건 완화 - 스트림이 없거나 ended면 재초기화)
+    const hasActiveStream = localStreamRef.current && 
+      localStreamRef.current.getVideoTracks().some(t => t.readyState === 'live');
+    
+    if (socketRef.current?.connected && hasActiveStream) {
+      console.log('Socket connected and stream active, skipping initialization');
       return;
     }
 
@@ -88,6 +92,26 @@ export default function RoomPage() {
   // 미디어 권한 요청 및 스트림 획득
   const requestMediaPermissions = async (): Promise<MediaStream | null> => {
     try {
+      // 기존 스트림이 있고 ended 상태가 아니면 재사용
+      if (localStreamRef.current) {
+        const videoTrack = localStreamRef.current.getVideoTracks()[0];
+        const audioTrack = localStreamRef.current.getAudioTracks()[0];
+        
+        // 트랙이 살아있는지 확인 (이슈 3 해결)
+        const videoAlive = videoTrack && videoTrack.readyState === 'live';
+        const audioAlive = audioTrack && audioTrack.readyState === 'live';
+        
+        if (videoAlive && audioAlive) {
+          console.log('[Media] 기존 스트림 재사용');
+          return localStreamRef.current;
+        } else {
+          console.log('[Media] 기존 스트림이 ended 상태, 새로 요청');
+          // 기존 스트림 정리
+          localStreamRef.current.getTracks().forEach(track => track.stop());
+          localStreamRef.current = null;
+        }
+      }
+
       // 먼저 권한 상태 확인
       const permissions = await Promise.all([
         navigator.permissions.query({ name: 'camera' as PermissionName }),
@@ -223,18 +247,28 @@ export default function RoomPage() {
       });
     });
 
-    // 새 사용자 참가
+    // 새 사용자 참가 - 기존 연결 정리 후 새로 생성
     socket.on('user_joined', ({ userId, userInfo }: any) => {
-      console.log('새 사용자 참가:', userInfo?.username, 'userId:', userId, 'myId:', socketIdRef.current);
+      console.log('[user_joined] 새 사용자 참가:', userInfo?.username, 'userId:', userId, 'myId:', socketIdRef.current);
       
       // 자기 자신이 아닌 경우에만 처리
       if (userId && userId !== socketIdRef.current) {
         toast(`${userInfo?.username}님이 참가했습니다`, { icon: '👋' });
         
+        // 기존 연결이 있으면 정리 (재입장 케이스)
+        const existingConnection = connectionsRef.current.get(userId);
+        if (existingConnection) {
+          console.log('[user_joined] 기존 연결 정리 후 재생성:', userId);
+          existingConnection.disconnect();
+          connectionsRef.current.delete(userId);
+          // 참가자 목록에서도 제거
+          setParticipants(prev => prev.filter(p => p.userId !== userId));
+        }
+        
         // 새 참가자에게 offer 전송
         createPeerConnection(userId, userInfo?.username || 'User', true);
       } else {
-        console.log('자기 자신의 이벤트는 무시');
+        console.log('[user_joined] 자기 자신의 이벤트는 무시');
       }
     });
 
@@ -260,19 +294,28 @@ export default function RoomPage() {
       }
     });
 
-    // 사용자 나감
+    // 사용자 나감 - 참가자 목록에서 제거 및 P2P 연결 정리
     socket.on('user_left', ({ userId }: any) => {
-      console.log('사용자 나감:', userId);
+      console.log('[user_left] 사용자 나감:', userId);
       
       // 자기 자신이 아닌 경우에만 처리
       if (userId && userId !== socketIdRef.current) {
-        const participant = participants.find(p => p.userId === userId);
-        if (participant) {
-          toast(`${participant.username}님이 나갔습니다`, { icon: '👋' });
-        }
+        // 참가자 목록에서 찾아서 토스트 표시 (setParticipants 전에)
+        setParticipants(prev => {
+          const participant = prev.find(p => p.userId === userId);
+          if (participant) {
+            toast(`${participant.username}님이 나갔습니다`, { icon: '👋' });
+          }
+          return prev.filter(p => p.userId !== userId);
+        });
         
-        // 연결 정리
-        removePeerConnection(userId);
+        // P2P 연결 정리
+        const connection = connectionsRef.current.get(userId);
+        if (connection) {
+          console.log('[user_left] P2P 연결 정리:', userId);
+          connection.disconnect();
+          connectionsRef.current.delete(userId);
+        }
       }
     });
 
@@ -589,11 +632,18 @@ export default function RoomPage() {
     });
     connectionsRef.current.clear();
 
-    // 로컬 스트림 종료
+    // 로컬 스트림 종료 (이슈 3: 완전히 정리하여 재입장 시 새로 요청)
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
+      localStreamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log(`[Cleanup] 트랙 종료: ${track.kind} (${track.label})`);
+      });
       localStreamRef.current = null;
     }
+
+    // 비디오 트랙 상태 초기화
+    setCurrentVideoTrack(null);
+    setOriginalVideoTrack(null);
 
     // Socket 연결 종료 (이벤트 리스너도 모두 제거)
     if (socketRef.current) {
@@ -604,6 +654,9 @@ export default function RoomPage() {
 
     // Socket ID 초기화
     socketIdRef.current = null;
+
+    // 참가자 목록 초기화
+    setParticipants([]);
 
     console.log('Cleanup completed');
   };
@@ -642,20 +695,20 @@ export default function RoomPage() {
   };
 
   return (
-    <div className="h-screen bg-discord-dark flex">
+    <div className="h-screen flex room-root">
       {/* 설정 모달 */}
       {showSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-discord-light rounded-lg p-6 w-full max-w-md mx-4"
+            className="modal-content"
           >
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-white">설정</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">설정</h2>
               <button
                 onClick={() => setShowSettings(false)}
-                className="text-gray-400 hover:text-white"
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
               >
                 <XMarkIcon className="w-6 h-6" />
               </button>
@@ -664,10 +717,10 @@ export default function RoomPage() {
             <div className="space-y-4">
               {/* 비디오 설정 */}
               <div>
-                <h3 className="text-sm font-medium text-gray-300 mb-2">비디오</h3>
-                <div className="bg-discord-darker rounded p-3">
+                <h3 className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">비디오</h3>
+                <div className="room-settings-box">
                   <label className="flex items-center justify-between">
-                    <span className="text-gray-400">카메라</span>
+                    <span className="text-gray-600 dark:text-gray-400">카메라</span>
                     <button
                       onClick={toggleVideo}
                       className={`px-3 py-1 rounded ${!isVideoOff ? 'bg-green-600' : 'bg-red-600'} text-white text-sm`}
@@ -680,10 +733,10 @@ export default function RoomPage() {
 
               {/* 오디오 설정 */}
               <div>
-                <h3 className="text-sm font-medium text-gray-300 mb-2">오디오</h3>
-                <div className="bg-discord-darker rounded p-3">
+                <h3 className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">오디오</h3>
+                <div className="room-settings-box">
                   <label className="flex items-center justify-between">
-                    <span className="text-gray-400">마이크</span>
+                    <span className="text-gray-600 dark:text-gray-400">마이크</span>
                     <button
                       onClick={toggleMute}
                       className={`px-3 py-1 rounded ${!isMuted ? 'bg-green-600' : 'bg-red-600'} text-white text-sm`}
@@ -696,19 +749,19 @@ export default function RoomPage() {
 
               {/* 사용자 정보 */}
               <div>
-                <h3 className="text-sm font-medium text-gray-300 mb-2">사용자 정보</h3>
-                <div className="bg-discord-darker rounded p-3 space-y-2 text-sm">
+                <h3 className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">사용자 정보</h3>
+                <div className="room-settings-box space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">이름</span>
-                    <span className="text-white">{user?.username}</span>
+                    <span className="text-gray-600 dark:text-gray-400">이름</span>
+                    <span className="text-gray-900 dark:text-white">{user?.username}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">이메일</span>
-                    <span className="text-white">{user?.email}</span>
+                    <span className="text-gray-600 dark:text-gray-400">이메일</span>
+                    <span className="text-gray-900 dark:text-white">{user?.email}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">개인 코드</span>
-                    <span className="text-white font-mono">{user?.personalCode}</span>
+                    <span className="text-gray-600 dark:text-gray-400">개인 코드</span>
+                    <span className="text-gray-900 dark:text-white font-mono">{user?.personalCode}</span>
                   </div>
                 </div>
               </div>
@@ -728,7 +781,7 @@ export default function RoomPage() {
       {/* 메인 비디오 영역 */}
       <div className="flex-1 flex flex-col">
         {/* 헤더 */}
-        <div className="bg-discord-darker border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+        <div className="room-header px-4 py-3 flex items-center justify-between">
           <div className="flex items-center">
             {/* 뒤로가기 버튼 추가 */}
             <button
@@ -737,14 +790,14 @@ export default function RoomPage() {
                   leaveRoom();
                 }
               }}
-              className="mr-4 p-2 rounded-lg bg-discord-light hover:bg-discord-hover text-gray-400 hover:text-white transition-colors"
+              className="mr-4 p-2 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-discord-light dark:hover:bg-discord-hover text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
               title="대시보드로 돌아가기"
             >
               <ArrowLeftIcon className="w-5 h-5" />
             </button>
             
-            <h2 className="text-white font-semibold mr-4">회의룸 #{roomId}</h2>
-            <div className="flex items-center text-sm text-gray-400">
+            <h2 className="text-gray-900 dark:text-white font-semibold mr-4">회의룸 #{roomId}</h2>
+            <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
               <UserGroupIcon className="w-4 h-4 mr-1" />
               <span>나 + {participants.length}명 = 총 {participants.length + 1}명 참가 중</span>
             </div>
@@ -753,7 +806,7 @@ export default function RoomPage() {
           <div className="flex items-center space-x-2">
             <button 
               onClick={() => setShowSettings(true)}
-              className="text-gray-400 hover:text-white transition-colors"
+              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors"
               title="설정"
             >
               <CogIcon className="w-5 h-5" />
@@ -829,7 +882,7 @@ export default function RoomPage() {
         </div>
 
         {/* 컨트롤 바 */}
-        <div className="bg-discord-darker border-t border-gray-800 px-4 py-4">
+        <div className="room-header border-t px-4 py-4">
           <div className="flex items-center justify-center space-x-4">
             <motion.button
               whileHover={{ scale: 1.1 }}
@@ -876,7 +929,7 @@ export default function RoomPage() {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setShowChat(!showChat)}
-              className="p-3 rounded-full bg-gray-700 hover:bg-gray-600 text-white transition-colors"
+              className="p-3 rounded-full control-btn"
               title="채팅/파일 전송"
             >
               <ChatBubbleLeftIcon className="w-6 h-6" />
@@ -925,17 +978,17 @@ export default function RoomPage() {
           initial={{ x: 300 }}
           animate={{ x: 0 }}
           exit={{ x: 300 }}
-          className="w-96 bg-discord-light border-l border-gray-800 flex flex-col"
+          className="w-96 flex flex-col room-sidebar"
         >
           {/* 탭 헤더 */}
-          <div className="border-b border-gray-700">
+          <div className="border-b border-gray-200 dark:border-gray-700">
             <div className="flex">
               <button
                 onClick={() => setSidebarTab('chat')}
                 className={`flex-1 p-4 flex items-center justify-center space-x-2 transition-colors ${
                   sidebarTab === 'chat'
-                    ? 'bg-discord-darker text-white border-b-2 border-discord-brand'
-                    : 'text-gray-400 hover:text-white'
+                    ? 'bg-gray-100 dark:bg-discord-darker text-gray-900 dark:text-white border-b-2 border-discord-brand'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white'
                 }`}
               >
                 <ChatBubbleLeftIcon className="w-5 h-5" />
@@ -945,8 +998,8 @@ export default function RoomPage() {
                 onClick={() => setSidebarTab('file')}
                 className={`flex-1 p-4 flex items-center justify-center space-x-2 transition-colors ${
                   sidebarTab === 'file'
-                    ? 'bg-discord-darker text-white border-b-2 border-discord-brand'
-                    : 'text-gray-400 hover:text-white'
+                    ? 'bg-gray-100 dark:bg-discord-darker text-gray-900 dark:text-white border-b-2 border-discord-brand'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white'
                 }`}
               >
                 <DocumentArrowUpIcon className="w-5 h-5" />
@@ -963,20 +1016,20 @@ export default function RoomPage() {
                   <div key={idx} className="chat-message">
                     <div className="flex-1">
                       <div className="flex items-baseline mb-1">
-                        <span className="text-white font-medium text-sm mr-2">
+                        <span className="text-gray-900 dark:text-white font-medium text-sm mr-2">
                           {msg.username}
                         </span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
                           {new Date(msg.timestamp).toLocaleTimeString()}
                         </span>
                       </div>
-                      <p className="text-gray-300 text-sm">{msg.content}</p>
+                      <p className="text-gray-700 dark:text-gray-300 text-sm">{msg.content}</p>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <form onSubmit={sendMessage} className="p-4 border-t border-gray-700">
+              <form onSubmit={sendMessage} className="p-4 border-t border-gray-200 dark:border-gray-700">
                 <input
                   type="text"
                   value={messageInput}

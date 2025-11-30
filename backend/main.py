@@ -186,6 +186,15 @@ def generate_room_code() -> str:
 async def startup():
     """서버 시작시 실행"""
     init_database()
+    
+    # 서버 시작 시 모든 방을 inactive로 초기화 (이슈 1 해결)
+    # 서버 재시작 시 메모리 초기화로 인한 좀비 방 방지
+    with get_db() as conn:
+        conn.execute("UPDATE meetings SET status = 'inactive' WHERE status = 'active'")
+        cursor = conn.execute("SELECT COUNT(*) FROM meetings WHERE status = 'inactive'")
+        count = cursor.fetchone()[0]
+        print(f"[INIT] 모든 활성 방을 비활성화함 (총 {count}개)")
+    
     print("[OK] VideoNet Pro 서버 시작!")
 
 @app.get("/")
