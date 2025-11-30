@@ -565,6 +565,15 @@ async def get_user_meetings(current_user = Depends(verify_token)):
 class ASGICORSMiddleware:
     """ASGI 레벨에서 CORS 헤더를 처리하는 미들웨어"""
     
+    CORS_HEADERS = [
+        (b'access-control-allow-origin', b'*'),
+        (b'access-control-allow-methods', b'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS'),
+        (b'access-control-allow-headers', b'Content-Type,Authorization,Accept,Origin'),
+        (b'access-control-allow-credentials', b'true'),
+        (b'access-control-max-age', b'3600'),
+        (b'vary', b'Origin'),
+    ]
+    
     def __init__(self, app):
         self.app = app
     
@@ -574,18 +583,17 @@ class ASGICORSMiddleware:
             await self.app(scope, receive, send)
             return
         
-        # OPTIONS 요청 처리 (preflight request)
-        if scope['method'] == 'OPTIONS':
+        # 모든 HTTP 요청에 CORS 헤더 추가
+        path = scope.get('path', '')
+        method = scope.get('method', '')
+        
+        # OPTIONS 요청 즉시 처리 (preflight request)
+        if method == 'OPTIONS':
+            print(f'[CORS] OPTIONS 요청: {path}')
             await send({
                 'type': 'http.response.start',
                 'status': 200,
-                'headers': [
-                    (b'access-control-allow-origin', b'*'),
-                    (b'access-control-allow-methods', b'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD'),
-                    (b'access-control-allow-headers', b'Content-Type, Authorization, Accept, Origin'),
-                    (b'access-control-allow-credentials', b'true'),
-                    (b'access-control-max-age', b'3600'),
-                ],
+                'headers': self.CORS_HEADERS,
             })
             await send({
                 'type': 'http.response.body',
@@ -597,12 +605,12 @@ class ASGICORSMiddleware:
         async def send_with_cors(message):
             if message['type'] == 'http.response.start':
                 headers = list(message.get('headers', []))
-                headers.extend([
-                    (b'access-control-allow-origin', b'*'),
-                    (b'access-control-allow-methods', b'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD'),
-                    (b'access-control-allow-headers', b'Content-Type, Authorization, Accept, Origin'),
-                    (b'access-control-allow-credentials', b'true'),
-                ])
+                # 기존 CORS 헤더 제거 (중복 방지)
+                headers = [h for h in headers if not h[0].lower().startswith(b'access-control')]
+                # CORS 헤더 추가
+                for header in self.CORS_HEADERS:
+                    if header not in headers:
+                        headers.append(header)
                 message['headers'] = headers
             await send(message)
         

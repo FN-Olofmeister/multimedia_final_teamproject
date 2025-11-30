@@ -7,11 +7,13 @@ import socketio
 from typing import Dict, Set
 import json
 
-# Socket.IO 서버 생성
+# ✅ 완벽한 CORS 설정
 sio = socketio.AsyncServer(
     async_mode='asgi',
-    cors_allowed_origins='*',  # 프로덕션에서는 특정 도메인으로 제한
+    cors_allowed_origins=['*'],  # 모든 origin 허용
     cors_credentials=True,
+    cors_methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+    cors_headers=['Content-Type', 'Authorization', 'Accept', 'Origin'],
     logger=True,
     engineio_logger=True
 )
