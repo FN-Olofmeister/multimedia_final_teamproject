@@ -594,10 +594,12 @@ class AddCORSHeaders(BaseHTTPMiddleware):
         return response
 
 # ===== Socket.IO와 FastAPI 통합 =====
-combined_app = socketio.ASGIApp(sio, other_asgi_app=app, socketio_path="/socket.io")
+# ✅ FastAPI app에 CORS 헤더 미들웨어 추가
+app.add_middleware(AddCORSHeaders)
 
-# ✅ CORS 헤더 미들웨어 추가
-combined_app.add_middleware(AddCORSHeaders)
+# Socket.IO ASGIApp에 FastAPI 앱을 통합
+# 이렇게 하면 Socket.IO와 FastAPI가 같은 포트에서 함께 작동
+combined_app = socketio.ASGIApp(sio, other_asgi_app=app, socketio_path="/socket.io")
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "7701"))
