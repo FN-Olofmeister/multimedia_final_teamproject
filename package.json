@@ -9,6 +9,7 @@
     "setup:frontend": "cd frontend && npm install",
     "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
     "backend": "cd backend && . venv/bin/activate && uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+    "backend:render": "cd backend && python run.py",
     "frontend": "cd frontend && npm run dev",
     "build": "cd frontend && npm install && npm run build && cp -r dist/* ../",
     "build:cloudflare": "./cloudflare-build.sh",
