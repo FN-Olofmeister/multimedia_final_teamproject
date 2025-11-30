@@ -29,10 +29,6 @@ from file_transfer import router as file_router
 from video_analysis import router as video_router
 from image_compression import router as compression_router
 
-# ✅ CORS 헤더 추가를 위한 임포트
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
-
 # ===== 설정 =====
 SECRET_KEY = os.getenv("SECRET_KEY", "videonet-secret-key-2024")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
@@ -564,47 +560,65 @@ async def get_user_meetings(current_user = Depends(verify_token)):
             ]
         }
 
-# ===== CORS 헤더 미들웨어 =====
-# ✅ Socket.IO ASGIApp이 FastAPI를 감싸면서 CORS 헤더가 손실되는 문제 해결
-class AddCORSHeaders(BaseHTTPMiddleware):
-    """모든 응답에 CORS 헤더를 추가하는 미들웨어"""
-    async def dispatch(self, request, call_next):
+# ===== ASGI 레벨 CORS 미들웨어 =====
+# ✅ Socket.IO를 완전히 우회할 수 없는 가장 저수준의 CORS 처리
+class ASGICORSMiddleware:
+    """ASGI 레벨에서 CORS 헤더를 처리하는 미들웨어"""
+    
+    def __init__(self, app):
+        self.app = app
+    
+    async def __call__(self, scope, receive, send):
+        # HTTP가 아니면 그냥 통과
+        if scope['type'] != 'http':
+            await self.app(scope, receive, send)
+            return
+        
         # OPTIONS 요청 처리 (preflight request)
-        if request.method == "OPTIONS":
-            return Response(
-                status_code=200,
-                headers={
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Credentials": "true",
-                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD",
-                    "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, Origin",
-                    "Access-Control-Max-Age": "3600",
-                }
-            )
+        if scope['method'] == 'OPTIONS':
+            await send({
+                'type': 'http.response.start',
+                'status': 200,
+                'headers': [
+                    (b'access-control-allow-origin', b'*'),
+                    (b'access-control-allow-methods', b'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD'),
+                    (b'access-control-allow-headers', b'Content-Type, Authorization, Accept, Origin'),
+                    (b'access-control-allow-credentials', b'true'),
+                    (b'access-control-max-age', b'3600'),
+                ],
+            })
+            await send({
+                'type': 'http.response.body',
+                'body': b'',
+            })
+            return
         
         # 일반 요청 처리
-        response = await call_next(request)
+        async def send_with_cors(message):
+            if message['type'] == 'http.response.start':
+                headers = list(message.get('headers', []))
+                headers.extend([
+                    (b'access-control-allow-origin', b'*'),
+                    (b'access-control-allow-methods', b'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD'),
+                    (b'access-control-allow-headers', b'Content-Type, Authorization, Accept, Origin'),
+                    (b'access-control-allow-credentials', b'true'),
+                ])
+                message['headers'] = headers
+            await send(message)
         
-        # 모든 응답에 CORS 헤더 추가
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept, Origin"
-        
-        return response
+        await self.app(scope, receive, send_with_cors)
 
 # ===== Socket.IO와 FastAPI 통합 =====
-# ✅ FastAPI app에 CORS 헤더 미들웨어 추가
-app.add_middleware(AddCORSHeaders)
-
-# Socket.IO ASGIApp에 FastAPI 앱을 통합
-# 이렇게 하면 Socket.IO와 FastAPI가 같은 포트에서 함께 작동
 combined_app = socketio.ASGIApp(sio, other_asgi_app=app, socketio_path="/socket.io")
+
+# ✅ ASGI 미들웨어로 감싸기 (가장 저수준 - Socket.IO 완전 우회 불가)
+combined_app = ASGICORSMiddleware(combined_app)
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "7701"))
     print("=" * 60)
     print(f"🚀 VideoNet Pro Backend starting on port {port}")
+    print(f"📝 20205146 한림대학교 콘텐츠IT 김재형 - AI+X 프로젝트")
     print("=" * 60)
     print(f"📍 REST API: http://localhost:{port}")
     print(f"📍 API Docs: http://localhost:{port}/docs")
