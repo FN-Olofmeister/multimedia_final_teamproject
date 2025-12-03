@@ -20,6 +20,7 @@ import { roomApi } from '@/utils/api';
 import type { Room } from '@/types';
 import toast from 'react-hot-toast';
 import io, { Socket } from 'socket.io-client';
+import { createSocket } from "@/utils/socket";
 
 export default function DashboardPage() {
   const { user, logout, theme, toggleTheme } = useAuth(); // theme, toggleTheme 추가
@@ -31,6 +32,7 @@ export default function DashboardPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
   const socketRef = useRef<Socket | null>(null);
+  
 
   // 방 목록 불러오기
   useEffect(() => {
@@ -39,44 +41,28 @@ export default function DashboardPage() {
 
   // Socket.IO 연결 및 실시간 방 목록 업데이트 구독
   useEffect(() => {
-    const socketUrl = 'http://localhost:7701';
+    console.log("🔌 Socket.IO 연결 시도 (대시보드)");
 
-    console.log('🔌 Socket.IO 연결 시도 (대시보드):', socketUrl);
+    socketRef.current = createSocket(localStorage.getItem("token"));
 
-    socketRef.current = io(socketUrl, {
-      path: '/socket.io/',
-      transports: ['websocket', 'polling'],
+    socketRef.current.on("connect", () => {
+      console.log("✅ Socket.IO 연결 성공 (대시보드)");
     });
 
-    // 연결 성공
-    socketRef.current.on('connect', () => {
-      console.log('✅ Socket.IO 연결 성공 (대시보드)');
-    });
-
-    // 방 목록 업데이트 이벤트 수신
-    socketRef.current.on('room_list_updated', () => {
-      console.log('📢 방 목록 업데이트 알림 수신 - 새로고침');
+    socketRef.current.on("room_list_updated", () => {
+      console.log("📢 방 목록 업데이트 알림 수신 - 새로고침");
       fetchRooms();
     });
 
-    // 연결 해제
-    socketRef.current.on('disconnect', () => {
-      console.log('❌ Socket.IO 연결 해제 (대시보드)');
+    socketRef.current.on("disconnect", () => {
+      console.log("❌ Socket.IO 연결 해제 (대시보드)");
     });
 
-    // 폴링 백업 추가 (이슈 2 해결) - 10초마다 방 목록 새로고침
-    // Socket.IO 이벤트가 누락되는 경우를 대비
-    const pollingInterval = setInterval(() => {
-      console.log('🔄 폴링으로 방 목록 새로고침');
-      fetchRooms();
-    }, 10000);
+    const pollingInterval = setInterval(() => fetchRooms(), 10000);
 
-    // 클린업
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+      socketRef.current?.disconnect();
+      socketRef.current = null;
       clearInterval(pollingInterval);
     };
   }, []);

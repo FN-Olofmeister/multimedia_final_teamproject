@@ -32,6 +32,7 @@ import toast from 'react-hot-toast';
 import FileTransfer from '@/components/FileTransfer';
 import WebcamCompression from '@/components/WebcamCompression';
 import WebcamEffects from '@/components/WebcamEffects';
+import { createSocket } from "@/utils/socket";
 
 interface VideoStream {
   userId: string;
@@ -202,35 +203,30 @@ export default function RoomPage() {
 
   // Socket.IO 연결
   const connectSocket = () => {
-    // 이미 연결되어 있으면 중복 연결 방지
-    if (socketRef.current?.connected) {
-      console.log('Socket already connected, reusing existing connection');
-      return;
-    }
+    if (socketRef.current?.connected) return;
 
-    // 기존 소켓이 있으면 정리
     if (socketRef.current) {
-      console.log('Cleaning up existing socket before creating new one');
       socketRef.current.disconnect();
       socketRef.current = null;
     }
 
-    // E2B 환경과 로컬 환경 구분
-    const socketUrl = window.location.hostname.includes('e2b.dev')
-      ? 'https://8000-i37urfutaoyq78dgicu29-6532622b.e2b.dev'
-      : import.meta.env.VITE_SOCKET_URL || 'http://localhost:7701';
+    socketRef.current = createSocket(localStorage.getItem("token"));
+    const socket = socketRef.current;
 
-    console.log('🔌 Socket.IO 연결 시도:', socketUrl);
+    socket.on("connect", () => {
+      console.log("✅ Socket.IO 연결 성공, Socket ID:", socket.id);
+      socketIdRef.current = socket.id;
 
-    socketRef.current = io(socketUrl, {
-      path: '/socket.io/',
-      transports: ['websocket', 'polling'],
-      auth: {
-        token: localStorage.getItem('token'),
-      },
+      socket.emit("join_room", {
+        roomId,
+        userInfo: { id: user?.id, username: user?.username, email: user?.email },
+      });
     });
 
-    const socket = socketRef.current;
+    socket.on("connect_error", (error: any) => {
+      console.error("❌ Socket.IO 연결 에러:", error);
+      toast.error("WebSocket 연결에 실패했습니다");
+    });
 
     // Socket 이벤트 리스너
     socket.on('connect', () => {
