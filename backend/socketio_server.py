@@ -264,13 +264,14 @@ async def chat_message(sid, data):
     # 사용자 정보 가져오기
     user_info = connected_users.get(sid, {}).get('userInfo', {})
     
-    # 같은 방의 모든 참가자에게 메시지 전송
+    # ✅ 메시지 구조를 플래튼하여 전송 (클라이언트가 msg.content로 접근 가능하도록)
+    # ✅ 보낸 사람 제외하고 브로드캐스트 (보낸 사람은 로컬에서 이미 추가함)
     await sio.emit('chat_message', {
         'userId': sid,
-        'userInfo': user_info,
-        'message': message,
-        'timestamp': data.get('timestamp')
-    }, room=room_id)
+        'username': message.get('username') if isinstance(message, dict) else user_info.get('username'),
+        'content': message.get('content') if isinstance(message, dict) else str(message),
+        'timestamp': message.get('timestamp') if isinstance(message, dict) else data.get('timestamp'),
+    }, room=room_id, skip_sid=sid)
 
 # ===== 화면 공유 =====
 
@@ -302,10 +303,19 @@ async def screen_share_stopped(sid, data):
 async def file_transfer_start(sid, data):
     """파일 전송 시작"""
     room_id = data.get('roomId')
-    print(f'[FILE] 파일 전송 시작: {data.get("fileName")} ({data.get("fileSize")} bytes) in Room {room_id}')
+    
+    # ✅ 발신자 정보 추가
+    user_info = connected_users.get(sid, {}).get('userInfo', {})
+    sender_name = user_info.get('username', '알 수 없음')
+    
+    print(f'[FILE] 파일 전송 시작: {sender_name}이(가) {data.get("fileName")} ({data.get("fileSize")} bytes) 전송 in Room {room_id}')
 
-    # 같은 방의 다른 사용자들에게 전달
-    await sio.emit('file_transfer_start', data, room=room_id, skip_sid=sid)
+    # ✅ 발신자 정보를 포함하여 같은 방의 모든 다른 사용자들에게 전달
+    await sio.emit('file_transfer_start', {
+        **data,
+        'senderId': sid,
+        'senderName': sender_name,
+    }, room=room_id, skip_sid=sid)
 
 @sio.event
 async def file_chunk(sid, data):

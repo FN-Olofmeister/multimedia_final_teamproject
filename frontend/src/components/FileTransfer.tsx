@@ -167,7 +167,12 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
       console.log('파일 수신 시작:', data);
       fileMetadata = data;
       receivedChunks = [];
-      toast(`${data.fileName} 수신 중...`, { icon: '📥' });
+      // ✅ 발신자 이름 표시
+      const senderName = data.senderName || '알 수 없음';
+      toast(`📥 ${senderName}님이 ${data.fileName} 전송 중...`, { 
+        icon: '📁',
+        duration: 3000,
+      });
     });
 
     socket.on('file_chunk', ({ chunkIndex, data }: any) => {
@@ -185,7 +190,9 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
         const file = new File([blob], fileMetadata.fileName, { type: fileMetadata.fileType });
 
         setReceivedFile(file);
-        toast.success(`${fileMetadata.fileName} 수신 완료!`);
+        // ✅ 발신자 이름 표시
+        const senderName = fileMetadata.senderName || '알 수 없음';
+        toast.success(`✅ ${senderName}님의 ${fileMetadata.fileName} 수신 완료!`);
 
         // 자동 다운로드
         const url = URL.createObjectURL(blob);

@@ -68,6 +68,8 @@ export default function RoomPage() {
   const socketIdRef = useRef<string | null>(null);
   const connectionsRef = useRef<Map<string, NativeWebRTCConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
+  // ✅ 참가자 정보 저장 (username 등) - 연결 전에 정보를 알기 위함
+  const participantInfoRef = useRef<Map<string, { username: string; userInfo: any }>>(new Map());
 
   // 컴포넌트 마운트 시 초기화
   useEffect(() => {
@@ -213,6 +215,7 @@ export default function RoomPage() {
     socketRef.current = createSocket(localStorage.getItem("token"));
     const socket = socketRef.current;
 
+    // ✅ connect 이벤트 (중복 제거됨)
     socket.on("connect", () => {
       console.log("✅ Socket.IO 연결 성공, Socket ID:", socket.id);
       socketIdRef.current = socket.id;
@@ -223,27 +226,13 @@ export default function RoomPage() {
       });
     });
 
+    // ✅ connect_error 이벤트 (중복 제거됨)
     socket.on("connect_error", (error: any) => {
       console.error("❌ Socket.IO 연결 에러:", error);
       toast.error("WebSocket 연결에 실패했습니다");
     });
 
-    // Socket 이벤트 리스너
-    socket.on('connect', () => {
-      console.log('✅ Socket.IO 연결 성공, Socket ID:', socket.id);
-      socketIdRef.current = socket.id; // Socket ID 저장
-      
-      socket.emit('join_room', { 
-        roomId, 
-        userInfo: {
-          id: user?.id,
-          username: user?.username,
-          email: user?.email
-        }
-      });
-    });
-
-    // 새 사용자 참가 - 기존 연결 정리 후 새로 생성
+    // ✅ 새 사용자 참가 - 기존 참가자가 새 참가자에게 offer 전송
     socket.on('user_joined', ({ userId, userInfo }: any) => {
       console.log('[user_joined] 새 사용자 참가:', userInfo?.username, 'userId:', userId, 'myId:', socketIdRef.current);
       
@@ -251,83 +240,79 @@ export default function RoomPage() {
       if (userId && userId !== socketIdRef.current) {
         toast(`${userInfo?.username}님이 참가했습니다`, { icon: '👋' });
         
+        // 참가자 정보 저장
+        participantInfoRef.current.set(userId, { username: userInfo?.username || 'User', userInfo });
+        
         // 기존 연결이 있으면 정리 (재입장 케이스)
         const existingConnection = connectionsRef.current.get(userId);
         if (existingConnection) {
-          console.log('[user_joined] 기존 연결 정리 후 재생성:', userId);
+          console.log('[user_joined] 기존 연결 정리:', userId);
           existingConnection.disconnect();
           connectionsRef.current.delete(userId);
-          // 참가자 목록에서도 제거
           setParticipants(prev => prev.filter(p => p.userId !== userId));
         }
         
-        // 새 참가자에게 offer 전송
+        // ✅ 새 참가자에게 offer 전송 (나는 기존 참가자이므로 initiator)
         createPeerConnection(userId, userInfo?.username || 'User', true);
-      } else {
-        console.log('[user_joined] 자기 자신의 이벤트는 무시');
       }
     });
 
-    // 현재 참가자 목록 수신
-    socket.on('current_participants', (participants: any[]) => {
-      console.log('현재 참가자 목록:', participants);
-      console.log('내 Socket ID:', socketIdRef.current);
+    // ✅ 현재 참가자 목록 수신 - 참가자 정보만 저장 (연결은 offer 수신 시 생성)
+    socket.on('current_participants', (participantsList: any[]) => {
+      console.log('[current_participants] 현재 참가자 목록:', participantsList?.length || 0, '명');
 
-      // 비어있지 않은 경우에만 처리
-      if (participants && participants.length > 0) {
-        participants.forEach(({ userId, userInfo }) => {
-          // 자기 자신이 아닌 경우에만 연결 준비 (offer는 보내지 않음)
+      if (participantsList && participantsList.length > 0) {
+        participantsList.forEach(({ userId, userInfo }) => {
           if (userId && userId !== socketIdRef.current) {
-            console.log(`기존 참가자 발견: ${userInfo?.username} (${userId})`);
-            // 연결 객체만 생성하고 offer는 기존 참가자가 보내도록 대기
-            // user_joined 이벤트를 받은 기존 참가자가 offer를 보낼 것임
-          } else {
-            console.log(`자기 자신 무시: ${userId}`);
+            console.log(`[current_participants] 기존 참가자 정보 저장: ${userInfo?.username} (${userId})`);
+            // 참가자 정보 저장 (연결은 기존 참가자가 offer를 보내면 그때 생성)
+            participantInfoRef.current.set(userId, { username: userInfo?.username || 'User', userInfo });
           }
         });
-      } else {
-        console.log('현재 방에 다른 참가자가 없습니다');
       }
     });
 
-    // 사용자 나감 - 참가자 목록에서 제거 및 P2P 연결 정리
+    // ✅ 사용자 나감 - 해당 사용자 연결만 정리 (다른 연결에 영향 없음)
     socket.on('user_left', ({ userId }: any) => {
       console.log('[user_left] 사용자 나감:', userId);
       
-      // 자기 자신이 아닌 경우에만 처리
       if (userId && userId !== socketIdRef.current) {
-        // 참가자 목록에서 찾아서 토스트 표시 (setParticipants 전에)
-        setParticipants(prev => {
-          const participant = prev.find(p => p.userId === userId);
-          if (participant) {
-            toast(`${participant.username}님이 나갔습니다`, { icon: '👋' });
-          }
-          return prev.filter(p => p.userId !== userId);
-        });
+        // 참가자 정보 가져오기 및 삭제
+        const info = participantInfoRef.current.get(userId);
+        participantInfoRef.current.delete(userId);
         
-        // P2P 연결 정리
+        // ✅ P2P 연결 정리 (먼저 정리)
         const connection = connectionsRef.current.get(userId);
         if (connection) {
           console.log('[user_left] P2P 연결 정리:', userId);
+          connection.setOnClose(() => {}); // 콜백 제거
           connection.disconnect();
           connectionsRef.current.delete(userId);
         }
+        
+        // ✅ toast를 setParticipants 밖으로 이동 (React 렌더링 경고 방지)
+        const username = info?.username || 'User';
+        setTimeout(() => {
+          toast(`${username}님이 나갔습니다`, { icon: '👋' });
+        }, 0);
+        
+        // 참가자 목록에서 제거
+        setParticipants(prev => prev.filter(p => p.userId !== userId));
       }
     });
 
     // WebRTC 시그널링
     socket.on('webrtc_offer', ({ from, offer }: any) => {
-      console.log('WebRTC Offer 수신:', from);
+      console.log('[webrtc_offer] Offer 수신:', from);
       handleWebRTCOffer(from, offer);
     });
 
     socket.on('webrtc_answer', ({ from, answer }: any) => {
-      console.log('WebRTC Answer 수신:', from);
+      console.log('[webrtc_answer] Answer 수신:', from);
       handleWebRTCAnswer(from, answer);
     });
 
     socket.on('webrtc_ice_candidate', ({ from, candidate }: any) => {
-      console.log('ICE Candidate 수신:', from);
       handleWebRTCIceCandidate(from, candidate);
     });
 
@@ -335,19 +320,21 @@ export default function RoomPage() {
     socket.on('chat_message', (message: any) => {
       setMessages(prev => [...prev, message]);
     });
-    
-    // 연결 에러 처리
-    socket.on('connect_error', (error: any) => {
-      console.error('❌ Socket.IO 연결 에러:', error);
-      toast.error('WebSocket 연결에 실패했습니다');
-    });
   };
 
-  // P2P 연결 생성
+  // ✅ P2P 연결 생성 (단순화됨)
   const createPeerConnection = async (userId: string, username: string, isInitiator: boolean) => {
+    // 이미 연결이 있으면 스킵
+    if (connectionsRef.current.has(userId)) {
+      console.log(`[createPeerConnection] 이미 연결 존재: ${userId}, 스킵`);
+      return;
+    }
+
+    console.log(`[createPeerConnection] 새 연결 생성: ${username} (${userId}), initiator: ${isInitiator}`);
+    
     const connection = new NativeWebRTCConnection(userId, isInitiator);
     
-    // ICE candidate 콜백 설정
+    // ICE candidate 콜백
     connection.setOnIceCandidate((candidate) => {
       socketRef.current?.emit('webrtc_ice_candidate', {
         to: userId,
@@ -355,46 +342,80 @@ export default function RoomPage() {
       });
     });
 
-    // 원격 스트림 콜백 설정
+    // 원격 스트림 수신 콜백
     connection.setOnStream((stream) => {
-      console.log(`원격 스트림 수신: ${username} (${userId})`);
+      console.log(`[createPeerConnection] 원격 스트림 수신: ${username} (${userId})`);
       setParticipants(prev => {
-        // 중복 체크
         const filtered = prev.filter(p => p.userId !== userId);
         return [...filtered, { userId, username, stream, isMuted: false, isVideoOff: false }];
       });
     });
 
-    // 연결 종료 콜백 설정
+    // 연결 종료 콜백 (user_left에서 처리하므로 여기선 최소한만)
     connection.setOnClose(() => {
-      removePeerConnection(userId);
+      console.log(`[createPeerConnection] 연결 종료 콜백: ${userId}`);
+      // 연결 정리는 user_left에서 처리하므로 여기선 참조만 정리
+      connectionsRef.current.delete(userId);
     });
 
-    // 연결 시작 - 로컬 스트림 전달
+    // 연결 초기화 (offer는 생성하지 않음)
     await connection.connect(localStreamRef.current || undefined);
     connectionsRef.current.set(userId, connection);
 
-    // Initiator인 경우 offer 전송
+    // ✅ Initiator인 경우에만 offer 생성 및 전송
     if (isInitiator) {
-      const offer = await connection.createOffer();
-      socketRef.current?.emit('webrtc_offer', {
-        to: userId,
-        offer,
-      });
+      try {
+        const offer = await connection.createOffer();
+        socketRef.current?.emit('webrtc_offer', {
+          to: userId,
+          offer,
+        });
+        console.log(`[createPeerConnection] Offer 전송 완료: ${userId}`);
+      } catch (error) {
+        console.error(`[createPeerConnection] Offer 생성 실패:`, error);
+      }
     }
   };
 
-  // WebRTC offer 처리
+  // ✅ WebRTC offer 처리 (Polite Peer 패턴)
   const handleWebRTCOffer = async (from: string, offer: RTCSessionDescriptionInit) => {
     try {
       let connection = connectionsRef.current.get(from);
+      const participantInfo = participantInfoRef.current.get(from);
+      const username = participantInfo?.username || 'User';
+      
+      // Glare 처리: 이미 연결이 있고 offer를 보낸 상태면 충돌
+      if (connection) {
+        const signalingState = connection.getSignalingState();
+        console.log(`[handleWebRTCOffer] 기존 연결 있음, state: ${signalingState}`);
+        
+        if (signalingState === 'have-local-offer') {
+          const myId = socketIdRef.current || '';
+          const isPolite = myId > from;
+          
+          console.log(`[handleWebRTCOffer] ⚠️ Glare! myId: ${myId}, from: ${from}, polite: ${isPolite}`);
+          
+          if (isPolite) {
+            // 내 offer 철회
+            console.log('[handleWebRTCOffer] Rollback 수행');
+            await connection.peerConnection?.setLocalDescription({ type: 'rollback' });
+          } else {
+            // 상대 offer 무시
+            console.log('[handleWebRTCOffer] 상대 offer 무시');
+            return;
+          }
+        } else if (signalingState === 'stable' || signalingState === 'have-remote-offer') {
+          // 이미 연결이 진행 중이면 offer 무시
+          console.log(`[handleWebRTCOffer] 연결 진행 중, offer 무시`);
+          return;
+        }
+      }
 
+      // 연결이 없으면 새로 생성
       if (!connection) {
-        // 연결이 없으면 새로 생성
+        console.log(`[handleWebRTCOffer] 새 연결 생성: ${from}`);
         connection = new NativeWebRTCConnection(from, false);
-        connectionsRef.current.set(from, connection);
-
-        // 콜백 설정
+        
         connection.setOnIceCandidate((candidate) => {
           socketRef.current?.emit('webrtc_ice_candidate', {
             to: from,
@@ -403,50 +424,62 @@ export default function RoomPage() {
         });
 
         connection.setOnStream((stream) => {
-          console.log(`원격 스트림 수신 (offer로부터): ${from}`);
+          console.log(`[handleWebRTCOffer] 스트림 수신: ${username} (${from})`);
           setParticipants(prev => {
             const filtered = prev.filter(p => p.userId !== from);
-            return [...filtered, { userId: from, username: 'User', stream, isMuted: false, isVideoOff: false }];
+            return [...filtered, { userId: from, username, stream, isMuted: false, isVideoOff: false }];
           });
         });
 
         connection.setOnClose(() => {
-          removePeerConnection(from);
+          console.log(`[handleWebRTCOffer] 연결 종료: ${from}`);
+          connectionsRef.current.delete(from);
         });
 
-        // 로컬 스트림 전달
         await connection.connect(localStreamRef.current || undefined);
+        connectionsRef.current.set(from, connection);
       }
 
-      // Offer 설정
+      // Offer 설정 및 Answer 전송
       await connection.setRemoteDescription(offer);
-
-      // Answer 생성 및 전송
       const answer = await connection.createAnswer();
       socketRef.current?.emit('webrtc_answer', {
         to: from,
         answer,
       });
+      console.log(`[handleWebRTCOffer] Answer 전송: ${from}`);
     } catch (error) {
-      console.error('Offer 처리 실패:', error);
-      toast.error('WebRTC 연결 실패');
+      console.error('[handleWebRTCOffer] 실패:', error);
+      // 실패 시 연결 정리
+      const conn = connectionsRef.current.get(from);
+      if (conn) {
+        conn.setOnClose(() => {});
+        conn.disconnect();
+        connectionsRef.current.delete(from);
+      }
     }
   };
 
-  // WebRTC answer 처리
+  // ✅ WebRTC answer 처리
   const handleWebRTCAnswer = async (from: string, answer: RTCSessionDescriptionInit) => {
     const connection = connectionsRef.current.get(from);
-    if (connection) {
-      const signalingState = connection.getSignalingState();
-      console.log(`Answer 처리 시작 - 현재 signaling state: ${signalingState}`);
+    if (!connection) {
+      console.warn(`[handleWebRTCAnswer] 연결 없음: ${from}`);
+      return;
+    }
 
-      // have-local-offer 상태일 때만 answer를 설정할 수 있음
-      if (signalingState === 'have-local-offer') {
+    const signalingState = connection.getSignalingState();
+    console.log(`[handleWebRTCAnswer] state: ${signalingState}`);
+
+    if (signalingState === 'have-local-offer') {
+      try {
         await connection.setRemoteDescription(answer);
-        console.log('Answer 설정 완료');
-      } else {
-        console.warn(`잘못된 상태에서 answer 수신 (현재: ${signalingState}). Answer 무시.`);
+        console.log(`[handleWebRTCAnswer] 설정 완료: ${from}`);
+      } catch (error) {
+        console.error(`[handleWebRTCAnswer] 실패:`, error);
       }
+    } else {
+      console.warn(`[handleWebRTCAnswer] 잘못된 상태: ${signalingState}`);
     }
   };
 
@@ -620,15 +653,19 @@ export default function RoomPage() {
 
   // 정리 함수
   const cleanup = () => {
-    console.log('Cleanup started - disconnecting all connections');
+    console.log('[Cleanup] 시작 - 모든 연결 정리');
 
-    // 모든 P2P 연결 종료
-    connectionsRef.current.forEach(connection => {
+    // ✅ 모든 P2P 연결 종료 (콜백 제거 후 정리)
+    connectionsRef.current.forEach((connection, odId) => {
+      connection.setOnClose(() => {}); // 콜백 제거
       connection.disconnect();
     });
     connectionsRef.current.clear();
 
-    // 로컬 스트림 종료 (이슈 3: 완전히 정리하여 재입장 시 새로 요청)
+    // ✅ 참가자 정보 정리
+    participantInfoRef.current.clear();
+
+    // 로컬 스트림 종료
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => {
         track.stop();
@@ -641,9 +678,9 @@ export default function RoomPage() {
     setCurrentVideoTrack(null);
     setOriginalVideoTrack(null);
 
-    // Socket 연결 종료 (이벤트 리스너도 모두 제거)
+    // Socket 연결 종료
     if (socketRef.current) {
-      socketRef.current.removeAllListeners(); // 모든 이벤트 리스너 제거
+      socketRef.current.removeAllListeners();
       socketRef.current.disconnect();
       socketRef.current = null;
     }
@@ -654,7 +691,7 @@ export default function RoomPage() {
     // 참가자 목록 초기화
     setParticipants([]);
 
-    console.log('Cleanup completed');
+    console.log('[Cleanup] 완료');
   };
 
   // 채팅 메시지 전송

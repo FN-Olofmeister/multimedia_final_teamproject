@@ -99,14 +99,12 @@ export class NativeWebRTCConnection {
       });
 
       this.connectionState = 'connecting';
-      console.log(`WebRTC 연결 시작 (initiator: ${this.isInitiator})`);
+      console.log(`[WebRTC] 연결 초기화 완료 (initiator: ${this.isInitiator})`);
 
-      // Initiator인 경우 offer 생성
-      if (this.isInitiator) {
-        await this.createOffer();
-      }
+      // ✅ 주의: offer 생성은 여기서 하지 않음! 
+      // 호출하는 쪽(createPeerConnection)에서 명시적으로 createOffer() 호출
     } catch (error) {
-      console.error('P2P 연결 시작 실패:', error);
+      console.error('[WebRTC] P2P 연결 시작 실패:', error);
       this.connectionState = 'failed';
       throw error;
     }
@@ -325,11 +323,10 @@ export class NativeWebRTCConnection {
       this.pc = null;
     }
 
-    // 로컬 스트림 종료
-    if (this.localStream) {
-      this.localStream.getTracks().forEach(track => track.stop());
-      this.localStream = null;
-    }
+    // ✅ 로컬 스트림은 종료하지 않음!
+    // 로컬 스트림은 RoomPage에서 관리하며, 여러 P2P 연결에서 공유됨
+    // 한 연결이 끊어졌다고 로컬 스트림을 종료하면 다른 연결에도 영향을 줌
+    this.localStream = null; // 참조만 해제
 
     // 원격 스트림 정리
     this.remoteStream = null;
