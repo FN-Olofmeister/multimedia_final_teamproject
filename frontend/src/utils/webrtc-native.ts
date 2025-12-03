@@ -164,6 +164,16 @@ export class NativeWebRTCConnection {
   async createOffer(): Promise<RTCSessionDescriptionInit> {
     if (!this.pc) throw new Error('PeerConnection이 없습니다');
 
+    // ⭐ 혹시 재협상 꼬임 방지용 상태 체크
+    if (this.pc.signalingState !== 'stable') {
+      console.warn(
+        '[WebRTC] stable 상태가 아닌데 createOffer 호출됨:',
+        this.pc.signalingState
+      );
+      // 필요하면 여기서 rollback 사용 가능
+      // await this.pc.setLocalDescription({ type: 'rollback' } as any);
+    }
+
     const offer = await this.pc.createOffer();
     await this.pc.setLocalDescription(offer);
     console.log('Offer 생성 완료');
@@ -177,6 +187,24 @@ export class NativeWebRTCConnection {
   async createAnswer(): Promise<RTCSessionDescriptionInit> {
     if (!this.pc) throw new Error('PeerConnection이 없습니다');
 
+    // ⭐ 핵심 수정: 상태가 have-remote-offer 가 아닐 때는 answer 생성 금지
+    if (this.pc.signalingState !== 'have-remote-offer') {
+      console.warn(
+        '[WebRTC] 잘못된 상태에서 createAnswer 호출:',
+        this.pc.signalingState
+      );
+
+      // 이미 answer까지 설정되어 stable인 경우, 기존 localDescription 재사용
+      if (this.pc.localDescription) {
+        console.warn('[WebRTC] 기존 localDescription 반환 (중복 answer 방지)');
+        return this.pc.localDescription as RTCSessionDescriptionInit;
+      }
+
+      throw new Error(
+        `createAnswer는 'have-remote-offer' 상태에서만 호출할 수 있습니다. 현재 상태: ${this.pc.signalingState}`
+      );
+    }
+
     const answer = await this.pc.createAnswer();
     await this.pc.setLocalDescription(answer);
     console.log('Answer 생성 완료');
@@ -189,6 +217,13 @@ export class NativeWebRTCConnection {
    */
   async setRemoteDescription(description: RTCSessionDescriptionInit): Promise<void> {
     if (!this.pc) throw new Error('PeerConnection이 없습니다');
+
+    console.log(
+      'setRemoteDescription 호출:',
+      description.type,
+      '현재 signalingState =',
+      this.pc.signalingState
+    );
 
     await this.pc.setRemoteDescription(description);
     console.log('원격 SDP 설정 완료:', description.type);
@@ -234,7 +269,11 @@ export class NativeWebRTCConnection {
    * @param screenTrack - 화면 공유 트랙 (enabled가 true일 때)
    * @param originalTrack - 원래 비디오 트랙 (enabled가 false일 때)
    */
-  async toggleScreenShare(enabled: boolean, screenTrack?: MediaStreamTrack, originalTrack?: MediaStreamTrack): Promise<void> {
+  async toggleScreenShare(
+    enabled: boolean,
+    screenTrack?: MediaStreamTrack,
+    originalTrack?: MediaStreamTrack
+  ): Promise<void> {
     if (!this.pc) return;
 
     try {
