@@ -407,3 +407,172 @@ async def compress_webcam_frame(request: WebcamFrameRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"프레임 압축 실패: {str(e)}")
+
+
+@router.post("/compress-video")
+async def compress_video(
+    file: UploadFile = File(...),
+    quality: int = Form(23),  # CRF 값 (0-51, 낮을수록 고품질, 23이 기본)
+    preset: str = Form("medium")  # ultrafast, fast, medium, slow
+):
+    """
+    동영상 압축 (FFmpeg/OpenCV 사용)
+    - H.264 코덱으로 재인코딩
+    - 압축된 동영상 반환
+    """
+    import subprocess
+    import shutil
+    
+    # FFmpeg 확인
+    ffmpeg_path = shutil.which('ffmpeg')
+    if not ffmpeg_path:
+        raise HTTPException(status_code=500, detail="FFmpeg가 설치되어 있지 않습니다")
+    
+    # 임시 파일 생성
+    input_suffix = Path(file.filename).suffix or '.mp4'
+    output_suffix = '.mp4'
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix=input_suffix) as input_tmp:
+        content = await file.read()
+        original_size = len(content)
+        input_tmp.write(content)
+        input_path = input_tmp.name
+    
+    output_path = input_path.replace(input_suffix, f'_compressed{output_suffix}')
+    
+    try:
+        # CRF 값 검증 (0-51)
+        crf = max(0, min(51, quality))
+        
+        # FFmpeg 명령어
+        cmd = [
+            ffmpeg_path,
+            '-i', input_path,
+            '-c:v', 'libx264',
+            '-preset', preset,
+            '-crf', str(crf),
+            '-c:a', 'aac',
+            '-b:a', '128k',
+            '-movflags', '+faststart',
+            '-y',
+            output_path
+        ]
+        
+        # FFmpeg 실행
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        
+        if result.returncode != 0:
+            raise HTTPException(status_code=500, detail=f"FFmpeg 오류: {result.stderr}")
+        
+        # 압축된 파일 읽기
+        with open(output_path, 'rb') as f:
+            compressed_content = f.read()
+        
+        compressed_size = len(compressed_content)
+        compression_ratio = (1 - compressed_size / original_size) * 100
+        
+        # Base64로 인코딩
+        compressed_b64 = base64.b64encode(compressed_content).decode('utf-8')
+        
+        # 새 파일명
+        new_filename = Path(file.filename).stem + '_compressed.mp4'
+        
+        return {
+            "original_size": original_size,
+            "compressed_size": compressed_size,
+            "compression_ratio": compression_ratio,
+            "compressed_file_base64": compressed_b64,
+            "filename": new_filename,
+            "crf": crf,
+            "preset": preset
+        }
+        
+    finally:
+        # 임시 파일 삭제
+        import os
+        if os.path.exists(input_path):
+            os.remove(input_path)
+        if os.path.exists(output_path):
+            os.remove(output_path)
+
+
+@router.post("/compress-audio")
+async def compress_audio(
+    file: UploadFile = File(...),
+    bitrate: int = Form(128)  # kbps (64, 128, 192, 256, 320)
+):
+    """
+    오디오 압축 (FFmpeg 사용)
+    - AAC/MP3로 재인코딩
+    - 압축된 오디오 반환
+    """
+    import subprocess
+    import shutil
+    
+    # FFmpeg 확인
+    ffmpeg_path = shutil.which('ffmpeg')
+    if not ffmpeg_path:
+        raise HTTPException(status_code=500, detail="FFmpeg가 설치되어 있지 않습니다")
+    
+    # 임시 파일 생성
+    input_suffix = Path(file.filename).suffix or '.mp3'
+    output_suffix = '.mp3'
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix=input_suffix) as input_tmp:
+        content = await file.read()
+        original_size = len(content)
+        input_tmp.write(content)
+        input_path = input_tmp.name
+    
+    output_path = input_path.replace(input_suffix, f'_compressed{output_suffix}')
+    
+    try:
+        # 비트레이트 검증
+        valid_bitrates = [64, 96, 128, 192, 256, 320]
+        actual_bitrate = min(valid_bitrates, key=lambda x: abs(x - bitrate))
+        
+        # FFmpeg 명령어
+        cmd = [
+            ffmpeg_path,
+            '-i', input_path,
+            '-c:a', 'libmp3lame',
+            '-b:a', f'{actual_bitrate}k',
+            '-y',
+            output_path
+        ]
+        
+        # FFmpeg 실행
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        
+        if result.returncode != 0:
+            raise HTTPException(status_code=500, detail=f"FFmpeg 오류: {result.stderr}")
+        
+        # 압축된 파일 읽기
+        with open(output_path, 'rb') as f:
+            compressed_content = f.read()
+        
+        compressed_size = len(compressed_content)
+        compression_ratio = (1 - compressed_size / original_size) * 100
+        
+        # Base64로 인코딩
+        compressed_b64 = base64.b64encode(compressed_content).decode('utf-8')
+        
+        # 새 파일명
+        new_filename = Path(file.filename).stem + '_compressed.mp3'
+        
+        return {
+            "original_size": original_size,
+            "compressed_size": compressed_size,
+            "compression_ratio": compression_ratio,
+            "compressed_file_base64": compressed_b64,
+            "filename": new_filename,
+            "bitrate": actual_bitrate
+        }
+        
+    finally:
+        # 임시 파일 삭제
+        import os
+        if os.path.exists(input_path):
+            os.remove(input_path)
+        if os.path.exists(output_path):
+            os.remove(output_path)

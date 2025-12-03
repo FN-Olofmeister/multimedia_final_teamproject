@@ -53,9 +53,9 @@ export default function WebcamCompression({ videoRef, isOpen, onClose }: WebcamC
 
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Canvas를 Base64로 변환
-      const frameDataUrl = canvas.toDataURL('image/jpeg', 1.0); // 원본 품질
-      const frameBase64 = frameDataUrl.split(',')[1]; // data:image/jpeg;base64, 제거
+      // Canvas를 Base64로 변환 (PNG: 무손실 → 진짜 원본 대비 품질 측정 가능)
+      const frameDataUrl = canvas.toDataURL('image/png');
+      const frameBase64 = frameDataUrl.split(',')[1]; // data:image/png;base64, 제거
 
       // 백엔드 API 호출 (JSON으로 전송)
       const response = await api.post('/compression/compress-webcam-frame', {
