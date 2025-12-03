@@ -263,31 +263,16 @@ export default function RoomPage() {
       }
     });
 
-    // ✅ 현재 참가자 목록 수신 - 새로 참가한 사람도 기존 참가자와 연결 시작
+    // ✅ 현재 참가자 목록 수신 - 참가자 정보만 저장 (연결은 user_joined 이벤트로 시작)
     socket.on('current_participants', (participantsList: any[]) => {
       console.log('[current_participants] 현재 참가자 목록:', participantsList?.length || 0, '명');
 
       if (participantsList && participantsList.length > 0) {
         participantsList.forEach(({ userId, userInfo }) => {
           if (userId && userId !== socketIdRef.current) {
-            console.log(`[current_participants] 기존 참가자: ${userInfo?.username} (${userId})`);
-
-            // 참가자 정보 저장
+            console.log(`[current_participants] 기존 참가자 정보 저장: ${userInfo?.username} (${userId})`);
+            // 참가자 정보만 저장 (연결은 기존 참가자들이 user_joined 이벤트를 받아 시작)
             participantInfoRef.current.set(userId, { username: userInfo?.username || 'User', userInfo });
-
-            // 이미 연결이 있으면 스킵
-            if (connectionsRef.current.has(userId)) {
-              console.log(`[current_participants] 이미 연결 존재, 스킵: ${userId}`);
-              return;
-            }
-
-            // ✅ socketId 비교로 initiator 결정 (일관성 보장)
-            const myId = socketIdRef.current;
-            const isInitiator = myId < userId;
-            console.log(`[current_participants] initiator 결정: myId(${myId}) < userId(${userId}) = ${isInitiator}`);
-
-            // 연결 시작
-            createPeerConnection(userId, userInfo?.username || 'User', isInitiator);
           }
         });
       }
