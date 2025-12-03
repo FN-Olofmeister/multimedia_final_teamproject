@@ -1,7 +1,7 @@
 # 🎬 VideoNet Pro - 팀 프로젝트 발표 자료
 
 > **과목**: 멀티미디어 (AI+X)
-> **발표일**: 2025년 11월 28일
+> **발표일**: 2025년 12월
 > **발표 시간**: 약 10분
 > **팀 인원**: 4명
 
@@ -11,12 +11,9 @@
 
 1. [프로젝트 개요](#1-프로젝트-개요)
 2. [기술 스택](#2-기술-스택)
-3. [팀 역할 분담](#3-팀-역할-분담)
-4. [구현한 기능](#4-구현한-기능)
-5. [해결한 버그](#5-해결한-버그)
-6. [시연 데모](#6-시연-데모)
-7. [협업 과정](#7-협업-과정)
-8. [느낀 점 및 향후 계획](#8-느낀-점-및-향후-계획)
+3. [해결한 버그](#3-해결한-버그)
+4. [추가한 기능](#4-추가한-기능)
+5. [협업 과정](#5-협업-과정)
 
 ---
 
@@ -31,7 +28,7 @@
 - P2P 방식으로 서버 부하 최소화
 
 ### ⏰ 개발 기간
-2025년 11월 25일 ~ 11월 27일 (3일)
+2025년 11월 25일 ~ 11월 30일
 
 ---
 
@@ -65,188 +62,297 @@
 
 ---
 
-## 3. 팀 역할 분담
+## 3. 해결한 버그
 
-> 💡 **팀원별로 아래 중 담당 파트를 선택하여 발표**
-
-### 👤 팀원 1: 웹캠 압축 품질 분석
-- 담당 파일: `WebcamCompression.tsx`, `CompressionAnalysis.tsx`, `image_compression.py`
-- 주요 기능:
-  - 웹캠 영상 실시간 압축 (품질 1~100 조절)
-  - **PSNR/SSIM** 품질 지표 계산
-  - Recharts로 실시간 그래프 시각화
-
-### 👤 팀원 2: 웹캠 실시간 효과 (영상)
-- 담당 파일: `WebcamEffects.tsx`, `video-effects.ts`
-- 주요 기능:
-  - 영상 반전 (좌우/상하)
-  - 전단 효과 (45°/90°)
-  - AI 필터 6종 (흑백, 세피아, 블러, 엣지 감지, 카툰, 네온)
-
-### 👤 팀원 3: 웹캠 실시간 효과 (오디오) + 다크모드
-- 담당 파일: `audio-effects.ts`, `AuthContext.tsx`, `index.css`
-- 주요 기능:
-  - 오디오 효과 3종 (Low Pass Filter, Echo, Reverb)
-  - 다크/라이트 모드 토글 시스템
-  - 테마별 CSS 클래스 시스템
-
-### 👤 팀원 4: 버그 수정 + 통합
-- 담당 파일: `RoomPage.tsx`, `DashboardPage.tsx`, `socketio_server.py`
-- 주요 작업:
-  - P0 긴급 버그 5개 해결
-  - 테마 적용 누락 수정
-  - WebRTC 재연결 로직 개선
+### 🐛 버그 1: 백엔드 웹소켓과 FastAPI 포트 불일치
+| 항목 | 내용 |
+|------|------|
+| **증상** | Socket.IO 연결 시 403 에러 발생 |
+| **원인** | `uvicorn main:app`으로 실행 시 Socket.IO가 별도 포트에서 동작 |
+| **해결** | FastAPI와 Socket.IO를 `combined_app`으로 통합하여 같은 포트(7701)에서 실행 |
+| **관련 파일** | `backend/main.py`, `backend/run.py` |
 
 ---
 
-## 4. 구현한 기능
+### 🐛 버그 2: 웹소켓 중복 연결 오류
+| 항목 | 내용 |
+|------|------|
+| **증상** | 같은 사용자가 여러 번 연결되어 이벤트 중복 발생, 참가자 수 이상 |
+| **원인** | 페이지 리렌더링 시 기존 Socket.IO 연결을 정리하지 않고 새로 연결 |
+| **해결** | 연결 전 기존 소켓 체크 + `useEffect` cleanup에서 `disconnect()` 호출 |
+| **관련 파일** | `frontend/src/pages/RoomPage.tsx`, `frontend/src/pages/DashboardPage.tsx` |
 
-### 4.1 🎥 압축 품질 분석 (PSNR/SSIM)
+---
 
-**기능 설명:**
-- 웹캠 영상을 실시간으로 압축하고 품질 저하 정도를 **수치로 측정**
-- 원본 vs 압축 이미지 비교 시각화
+### 🐛 버그 3: 방에 0명이어도 방이 남아있는 문제
+| 항목 | 내용 |
+|------|------|
+| **증상** | 비활성 방(0/100)이 대시보드에 계속 표시됨 |
+| **원인** | 서버 재시작 시 메모리는 초기화되지만 DB의 `status`가 `active`로 유지 |
+| **해결** | 서버 시작 시 모든 방을 `inactive`로 초기화 + 마지막 참가자 퇴장 시 방 삭제 |
+| **관련 파일** | `backend/main.py` (startup 이벤트), `backend/socketio_server.py` (leave_room) |
 
-**기술 포인트:**
+---
+
+### 🐛 버그 4: 호스트가 2명으로 표시 / UI상 인원 불일치
+| 항목 | 내용 |
+|------|------|
+| **증상** | 방 참가자 수가 실제와 다르게 표시, 호스트가 2명으로 보임 |
+| **원인** | `user_left` 핸들러에서 React `setState` 클로저 문제로 이전 상태 참조 |
+| **해결** | `setParticipants(prev => prev.filter(...))` 콜백 패턴 사용 |
+| **관련 파일** | `frontend/src/pages/RoomPage.tsx` (user_left, user_joined 핸들러) |
+
+---
+
+### 🐛 버그 5: 다크모드/라이트모드 동작 안 함
+| 항목 | 내용 |
+|------|------|
+| **증상** | 테마 토글 버튼 클릭해도 UI 색상 변경 안 됨 |
+| **원인** | CSS에 `#추가부분` 잘못된 주석 + `@layer components` 블록 미닫힘 |
+| **해결** | CSS 구문 오류 수정 + 테마별 클래스 시스템(`.room-root`, `.dashboard-root` 등) 적용 |
+| **관련 파일** | `frontend/src/styles/index.css`, `frontend/src/pages/RoomPage.tsx`, `DashboardPage.tsx` |
+
+---
+
+### 🐛 버그 6: 파일 전송 시 이전 파일 정보로 값 오류
+| 항목 | 내용 |
+|------|------|
+| **증상** | 두 번째 파일 전송 시 이전 파일의 크기/해시 정보가 남아있음 |
+| **원인** | 전송 완료 후 상태 변수 초기화 누락 |
+| **해결** | `file_transfer_end` 이벤트에서 `setTransferStats(null)`, `setReceivedFile(null)` 호출 |
+| **관련 파일** | `frontend/src/components/FileTransfer.tsx` |
+
+---
+
+### 🐛 버그 7: 재입장 시 카메라 검은 화면
+| 항목 | 내용 |
+|------|------|
+| **증상** | 방을 나갔다가 다시 입장하면 카메라가 "연결중..."으로만 표시 |
+| **원인** | cleanup에서 트랙 종료 후 재입장 시 `ended` 상태의 스트림 재사용 시도 |
+| **해결** | 스트림 `readyState === 'live'` 체크 + 트랙 상태 완전 초기화 |
+| **관련 파일** | `frontend/src/pages/RoomPage.tsx`, `frontend/src/utils/webrtc-native.ts` |
+
+---
+
+### 🐛 버그 8: 상대방 퇴장 시 내 화면 검은색
+| 항목 | 내용 |
+|------|------|
+| **증상** | 상대방이 방을 나가면 내 카메라 화면도 검은색으로 변함 |
+| **원인** | 재입장 시 기존 P2P 연결 미정리로 충돌 발생 |
+| **해결** | `user_joined` 핸들러에서 기존 연결 정리 후 새 P2P 생성 |
+| **관련 파일** | `frontend/src/pages/RoomPage.tsx` |
+
+---
+
+### 🐛 버그 9: 영상/오디오 효과 적용 시 충돌
+| 항목 | 내용 |
+|------|------|
+| **증상** | 영상 효과 적용하면 오디오가 끊기고, 오디오 효과 적용하면 영상이 멈춤 |
+| **원인** | "영상 효과 적용" 버튼이 전체 스트림을 교체하여 오디오 트랙도 덮어씀 |
+| **해결** | 비디오/오디오 트랙 독립 처리 (`processedVideoStreamRef`, `processedAudioStreamRef` 분리) |
+| **관련 파일** | `frontend/src/components/WebcamEffects.tsx` |
+
+---
+
+### 🐛 버그 10: 웹캠 효과 적용 시 영상 안 보임
+| 항목 | 내용 |
+|------|------|
+| **증상** | 효과 적용 버튼 클릭 후 영상이 "연결중..."으로만 표시 |
+| **원인** | `processStream`에서 비디오 메타데이터 로딩 전에 Canvas 크기가 0×0으로 반환 |
+| **해결** | `processStream`을 `async`로 변경 + `onloadedmetadata` Promise 대기 |
+| **관련 파일** | `frontend/src/utils/video-effects.ts` |
+
+---
+
+### 🐛 버그 11: 오디오 효과 안 들림
+| 항목 | 내용 |
+|------|------|
+| **증상** | Echo, Reverb 효과 적용해도 소리 변화 없음 |
+| **원인** | `wetGain.gain.value = 0.0`으로 설정되어 효과음 출력 안 됨 |
+| **해결** | `wetGain` 초기값 0.7로 수정 + 에코/리버브 동시 적용 지원 |
+| **관련 파일** | `frontend/src/utils/audio-effects.ts` |
+
+---
+
+### 🐛 버그 12: 라이트모드 버튼 안 보임
+| 항목 | 내용 |
+|------|------|
+| **증상** | 라이트모드에서 "회의 참가" 버튼이 배경과 동일해서 안 보임 |
+| **원인** | 버튼 배경색이 다크모드 전용 색상으로 하드코딩됨 |
+| **해결** | `.dashboard-card` 테마별 클래스 적용 (`bg-white` / `bg-discord-light`) |
+| **관련 파일** | `frontend/src/pages/DashboardPage.tsx`, `frontend/src/styles/index.css` |
+
+---
+
+### 🐛 버그 13: Tailwind 클래스 오타
+| 항목 | 내용 |
+|------|------|
+| **증상** | 일부 텍스트가 다크모드에서 안 보임 |
+| **원인** | `dark: text-white` (콜론 뒤 공백) 오타 |
+| **해결** | `dark:text-white`로 수정 |
+| **관련 파일** | `DashboardPage.tsx`, `FileTransfer.tsx` 등 |
+
+---
+
+### 🐛 버그 14: accept 속성 중복
+| 항목 | 내용 |
+|------|------|
+| **증상** | 파일 선택 시 HTML 경고 발생 |
+| **원인** | `<input>` 태그에 `accept="*/*"` 속성이 2개 |
+| **해결** | 중복 속성 제거 |
+| **관련 파일** | `frontend/src/components/FileTransfer.tsx` |
+
+---
+
+## 4. 추가한 기능
+
+### ✨ 기능 1: 다크모드 / 라이트모드
+| 항목 | 내용 |
+|------|------|
+| **설명** | 사용자가 테마를 선택하여 UI 색상 전환 가능 |
+| **구현 방식** | `html[data-theme='dark']` / `html[data-theme='light']` 속성 기반 |
+| **기술 포인트** | Tailwind CSS 커스텀 클래스 + LocalStorage 저장 |
+| **관련 파일** | `frontend/src/contexts/AuthContext.tsx`, `frontend/src/styles/index.css` |
+
+---
+
+### ✨ 기능 2: 백엔드 실행 시 방 자동 초기화
+| 항목 | 내용 |
+|------|------|
+| **설명** | 서버 시작 시 모든 방을 `inactive` 상태로 초기화 |
+| **구현 방식** | FastAPI `@app.on_event("startup")`에서 SQL 실행 |
+| **기술 포인트** | 서버 재시작 시 좀비 방 방지 |
+| **관련 파일** | `backend/main.py` |
+
+---
+
+### ✨ 기능 3: 빈 방 자동 삭제
+| 항목 | 내용 |
+|------|------|
+| **설명** | 마지막 참가자가 퇴장하면 방이 자동으로 삭제됨 |
+| **구현 방식** | `leave_room` 이벤트에서 참가자 수 체크 후 DB 삭제 |
+| **기술 포인트** | Socket.IO 이벤트 + Raw SQL |
+| **관련 파일** | `backend/socketio_server.py` |
+
+---
+
+### ✨ 기능 4: 웹캠 실시간 압축 품질 분석
+| 항목 | 내용 |
+|------|------|
+| **설명** | 웹캠 영상을 실시간으로 압축하고 품질 저하 정도를 수치로 측정 |
+| **구현 방식** | 백엔드에서 PSNR/SSIM 계산 + 프론트엔드에서 Recharts 그래프 시각화 |
+| **기술 포인트** | OpenCV 이미지 처리, scikit-image 품질 지표 |
+| **관련 파일** | `backend/image_compression.py`, `frontend/src/components/WebcamCompression.tsx`, `CompressionAnalysis.tsx` |
+
+**품질 지표:**
 ```python
-# PSNR (Peak Signal-to-Noise Ratio) - dB 단위
+# PSNR (Peak Signal-to-Noise Ratio) - dB 단위, 높을수록 좋음
 psnr = peak_signal_noise_ratio(original, compressed)
 
-# SSIM (Structural Similarity Index) - 0~1 사이
+# SSIM (Structural Similarity Index) - 0~1 사이, 1에 가까울수록 좋음
 ssim = structural_similarity(original, compressed, channel_axis=2)
 ```
 
-**활용 예시:**
-- 영상 통화 시 대역폭 제한 환경에서 최적 품질 결정
-- 압축률에 따른 화질 변화 분석
+---
+
+### ✨ 기능 5: 파일 전송 시 무결성 검증
+| 항목 | 내용 |
+|------|------|
+| **설명** | 전송된 파일의 SHA256 해시를 비교하여 무결성 검증 |
+| **구현 방식** | 송신 측에서 해시 계산 → 수신 측에서 재계산 후 비교 |
+| **기술 포인트** | Web Crypto API `crypto.subtle.digest()` |
+| **관련 파일** | `frontend/src/components/FileTransfer.tsx` |
 
 ---
 
-### 4.2 🎨 웹캠 실시간 영상 효과
+### ✨ 기능 6: 웹캠 영상 효과 (6종)
+| 항목 | 내용 |
+|------|------|
+| **설명** | 실시간으로 웹캠 영상에 다양한 필터 적용 |
+| **구현 방식** | Canvas API `getImageData` → 픽셀별 연산 → `putImageData` |
+| **효과 목록** | 흑백, 세피아, 블러, 엣지 감지, 카툰, 네온 |
+| **관련 파일** | `frontend/src/utils/video-effects.ts`, `frontend/src/components/WebcamEffects.tsx` |
 
-**구현된 효과들:**
-
-| 카테고리 | 효과 | 설명 |
-|----------|------|------|
-| 기하 변환 | 좌우 반전 | Canvas `scale(-1, 1)` |
-| 기하 변환 | 상하 반전 | Canvas `scale(1, -1)` |
-| 기하 변환 | 45° 전단 | `skewX(45deg)` 효과 |
-| 기하 변환 | 90° 전단 | 극단적 비스듬한 효과 |
-| AI 필터 | 흑백 | `getImageData` → 픽셀별 연산 |
-| AI 필터 | 세피아 | RGB → 세피아 톤 변환 |
-| AI 필터 | 블러 | CSS `filter: blur()` |
-| AI 필터 | 엣지 감지 | Sobel 필터 적용 |
-| AI 필터 | 카툰 | 양자화 + 엣지 강조 |
-| AI 필터 | 네온 | 색상 반전 + 글로우 효과 |
-
-**핵심 코드:**
-```typescript
-// 영상 효과 토글 시 즉시 적용
-const handleVideoEffectToggle = async (key, value) => {
-  const newEffects = { ...videoEffects, [key]: value };
-  setVideoEffects(newEffects);
-  
-  // Canvas로 실시간 처리
-  const processedStream = await videoProcessor.processStream(stream);
-  onStreamUpdate(processedStream);
-};
-```
+**효과별 구현:**
+| 효과 | 구현 방식 |
+|------|-----------|
+| 흑백 | `gray = 0.299*R + 0.587*G + 0.114*B` |
+| 세피아 | RGB → 세피아 톤 매트릭스 변환 |
+| 블러 | CSS `filter: blur(Npx)` |
+| 엣지 감지 | Sobel 필터 커널 적용 |
+| 카툰 | 색상 양자화 + 엣지 강조 |
+| 네온 | 색상 반전 + 글로우 효과 |
 
 ---
 
-### 4.3 🔊 웹캠 실시간 오디오 효과
+### ✨ 기능 7: 웹캠 기하 변환 효과
+| 항목 | 내용 |
+|------|------|
+| **설명** | 영상을 반전하거나 기울이는 효과 |
+| **구현 방식** | Canvas `scale()`, `transform()` 메서드 |
+| **효과 목록** | 좌우 반전, 상하 반전, 45° 전단, 90° 전단 |
+| **관련 파일** | `frontend/src/utils/video-effects.ts` |
 
-**구현된 효과들:**
+---
 
-| 효과 | Web Audio API 노드 | 설명 |
-|------|-------------------|------|
+### ✨ 기능 8: 웹캠 오디오 효과 (3종)
+| 항목 | 내용 |
+|------|------|
+| **설명** | 실시간으로 마이크 음성에 효과 적용 |
+| **구현 방식** | Web Audio API 노드 체인 |
+| **효과 목록** | Low Pass Filter, Echo, Reverb |
+| **관련 파일** | `frontend/src/utils/audio-effects.ts`, `frontend/src/components/WebcamEffects.tsx` |
+
+**Web Audio API 노드:**
+| 효과 | 노드 | 설명 |
+|------|------|------|
 | Low Pass Filter | `BiquadFilterNode` | 고주파 제거 (뭉개진 소리) |
 | Echo | `DelayNode` + `GainNode` | 딜레이 0.1~1.0초 조절 |
 | Reverb | `ConvolverNode` | 잔향 효과 (공간감) |
 
-**핵심 코드:**
-```typescript
-// Web Audio API 체인 구성
-source → lowpassFilter → echoDelay → reverbConvolver → destination
-```
+---
+
+### ✨ 기능 9: 효과 토글형 즉시 적용
+| 항목 | 내용 |
+|------|------|
+| **설명** | 효과 체크박스 클릭 시 즉시 적용 (기존: 적용 버튼 별도 클릭 필요) |
+| **구현 방식** | `onChange` 핸들러에서 바로 스트림 업데이트 |
+| **기술 포인트** | `replaceTrack()`으로 renegotiation 없이 트랙 교체 |
+| **관련 파일** | `frontend/src/components/WebcamEffects.tsx`, `frontend/src/pages/RoomPage.tsx` |
 
 ---
 
-### 4.4 🌓 다크/라이트 모드
-
-**구현 방식:**
-- `html[data-theme='dark']` / `html[data-theme='light']` 속성 기반
-- Tailwind CSS 커스텀 클래스로 테마별 스타일 분리
-
-**적용된 컴포넌트:**
-- Dashboard (대시보드)
-- RoomPage (화상회의 방)
-- FileTransfer (파일 전송)
-- 모달 창들
+### ✨ 기능 10: 방 리스트 실시간 업데이트
+| 항목 | 내용 |
+|------|------|
+| **설명** | 다른 사용자가 방을 생성/삭제하면 실시간으로 대시보드에 반영 |
+| **구현 방식** | Socket.IO `room_list_updated` 이벤트 + 10초 폴링 백업 |
+| **기술 포인트** | 이벤트 누락 대비 폴링 추가 |
+| **관련 파일** | `backend/socketio_server.py`, `frontend/src/pages/DashboardPage.tsx` |
 
 ---
 
-## 5. 해결한 버그
+### ✨ 기능 11: WebRTC 연결 상태 검증
+| 항목 | 내용 |
+|------|------|
+| **설명** | 시그널링 전 연결 상태 확인하여 오류 방지 |
+| **구현 방식** | `pc.signalingState` 체크 후 offer/answer 생성 |
+| **기술 포인트** | `stable`, `have-local-offer` 등 상태별 처리 |
+| **관련 파일** | `frontend/src/utils/webrtc-native.ts` |
 
-### 🔴 P0 긴급 버그 (5개 모두 해결)
+---
 
-| # | 버그 | 원인 | 해결 방법 |
-|---|------|------|-----------|
-| 1 | 비활성 방(0/100)이 너무 많음 | 서버 재시작 시 DB 동기화 누락 | 서버 시작 시 모든 방 `inactive` 초기화 |
-| 2 | 방 생성이 실시간 반영 안됨 | `join_room`에서 알림 미발송 | Socket.IO 이벤트 추가 + 10초 폴링 백업 |
-| 3 | 재입장 시 카메라 검은 화면 | 트랙 ended 상태에서 재사용 시도 | 트랙 상태 체크 후 재요청 |
-| 4 | 상대방 퇴장 시 내 화면 검은색 | React `setState` 클로저 문제 | `setParticipants` 콜백 패턴 사용 |
-| 5 | 영상/오디오 효과 충돌 | 적용 버튼이 트랙 전체 덮어쓰기 | 토글형 즉시 적용 + 독립 트랙 처리 |
+## 5. 협업 과정
 
-### 🟡 추가 버그 수정
+### 📅 작업 타임라인
 
-| 버그 | 파일 | 수정 내용 |
+| 날짜 | 커밋 | 주요 작업 |
 |------|------|-----------|
-| CSS 구문 오류 | `index.css` | `#추가부분` 잘못된 주석 제거, `@layer` 닫힘 |
-| 버튼 안 보임 (라이트 모드) | `DashboardPage.tsx` | 배경색과 동일한 버튼 색상 수정 |
-| 오타 (`dark: text-white`) | 여러 파일 | `dark:text-white`로 수정 |
-| `accept` 속성 중복 | `FileTransfer.tsx` | 중복 제거 |
-
----
-
-## 6. 시연 데모
-
-### 🖥️ 시연 순서 (제안)
-
-1. **회원가입/로그인** (30초)
-   - 마스터 초대코드: `MASTER2024`
-
-2. **방 생성 및 참가** (1분)
-   - 2개 브라우저 탭에서 동시 접속
-   - 참가자 수 실시간 반영 확인
-
-3. **압축 품질 분석** (1분)
-   - 품질 슬라이더 조절
-   - PSNR/SSIM 그래프 변화 확인
-
-4. **영상 효과** (1분)
-   - 좌우 반전, 흑백, 네온 필터 적용
-   - 토글 즉시 적용 확인
-
-5. **오디오 효과** (1분)
-   - Echo 효과 적용 후 말하기
-   - 상대방에게 효과 적용된 소리 전달 확인
-
-6. **다크/라이트 모드 전환** (30초)
-   - 설정에서 테마 토글
-   - 전체 UI 색상 변경 확인
-
----
-
-## 7. 협업 과정
-
-### 📅 일정
-
-| 날짜 | 작업 내용 |
-|------|-----------|
-| 11/25 | 프로젝트 분석, Socket.IO 중복 연결 버그 수정 |
-| 11/26 | 압축 품질 분석, 웹캠 실시간 효과 기능 구현 |
-| 11/27 | P0 버그 5개 수정, 다크모드 병합, 테마 적용 |
+| 11/25 | `3deff13` | 프로젝트 구조 정리, 백엔드/프론트엔드 코드 개선, 포트 통합 |
+| 11/27 | `13e8d92` | 압축 품질 분석 + 웹캠 효과 기능 추가 + Socket.IO 버그 수정 |
+| 11/27 | `52698eb` | 웹캠 효과 버그 수정 (async, wetGain, replaceTrack) |
+| 11/28 | `2b3dd59` | JM 브랜치 병합 (다크모드 기능) |
+| 11/30 | `8afe807` | P0 버그 5개 수정 + UI 테마 적용 + 발표 문서 추가 |
 
 ### 🔀 Git 브랜치 전략
 
@@ -257,33 +363,8 @@ main ─── KYW_0.1 (주 개발)
 
 ### 💬 소통 방식
 
-- **GitHub Issues**: 버그 및 기능 요청 관리
-- **Pull Request**: 코드 리뷰 후 병합
+- **GitHub Pull Request**: 코드 리뷰 후 병합
 - **TODO.md**: 작업 현황 실시간 공유
-
----
-
-## 8. 느낀 점 및 향후 계획
-
-### 💡 배운 점
-
-1. **WebRTC의 복잡성**
-   - 단순해 보이지만 ICE, STUN, 시그널링 등 이해 필요
-
-2. **실시간 미디어 처리**
-   - Canvas API와 Web Audio API의 강력함
-
-3. **협업의 중요성**
-   - 브랜치 전략과 코드 리뷰의 필요성
-
-### 🚀 향후 계획 (추후 개선)
-
-| 기능 | 설명 |
-|------|------|
-| TURN 서버 | NAT/방화벽 환경 지원 |
-| 가상 배경 | TensorFlow.js BodyPix 활용 |
-| 회의 녹화 | MediaRecorder API |
-| 파일 전송 UI | 진행률, 취소 버튼 |
 
 ---
 
@@ -296,5 +377,3 @@ main ─── KYW_0.1 (주 개발)
 ---
 
 ## 🙏 감사합니다!
-
-### Q&A
