@@ -322,21 +322,8 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
   };
 
   return (
-    <div className="bg-discord-light rounded-lg p-6 space-y-4">
-      {/* 🔥 다크모드 토글 버튼 (테스트/실사용 겸용) */}
-      <div className="flex justify-end mb-1">
-        <button
-          onClick={toggleTheme}
-          className={`px-3 py-1 rounded text-xs font-medium transition
-                      ${theme === 'dark'
-                        ? 'bg-discord-brand text-white'
-                        : 'bg-gray-300 text-gray-800'}`}
-        >
-          다크 모드: {theme === 'dark' ? '켜짐' : '꺼짐'}
-        </button>
-      </div>
-
-      <h3 className="text-xl font-bold text-white flex items-center">
+    <div className="file-transfer-root">
+      <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
         <DocumentArrowUpIcon className="w-6 h-6 mr-2" />
         파일 전송
       </h3>
@@ -349,7 +336,6 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
           onChange={handleFileSelect}
           className="hidden"
           accept="*/*"
-          accept="*/*"
         />
         <button
           onClick={() => fileInputRef.current?.click()}
@@ -358,7 +344,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
           파일 선택
         </button>
         {selectedFile && (
-          <p className="text-sm text-gray-400 mt-2">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
             선택됨: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
           </p>
         )}
@@ -377,39 +363,39 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
       {/* 진행바 */}
       {isTransferring && (
         <div className="space-y-2">
-          <div className="w-full bg-discord-darker rounded-full h-4">
+          <div className="w-full bg-gray-200 dark:bg-discord-darker rounded-full h-4">
             <div
               className="bg-discord-brand h-4 rounded-full transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="text-sm text-gray-400 text-center">{progress.toFixed(1)}%</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center">{progress.toFixed(1)}%</p>
         </div>
       )}
 
       {/* 전송 통계 */}
       {transferStats && (
-        <div className="bg-discord-darker rounded-lg p-4 space-y-2">
-          <h4 className="font-semibold text-white flex items-center">
+        <div className="file-transfer-stats">
+          <h4 className="font-semibold text-gray-900 dark:text-white flex items-center">
             <SignalIcon className="w-5 h-5 mr-2" />
             전송 통계
           </h4>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div>
-              <span className="text-gray-400">파일 크기:</span>
-              <span className="text-white ml-2">{(transferStats.fileSize / 1024 / 1024).toFixed(2)} MB</span>
+              <span className="text-gray-500 dark:text-gray-400">파일 크기:</span>
+              <span className="text-gray-900 dark:text-white ml-2">{(transferStats.fileSize / 1024 / 1024).toFixed(2)} MB</span>
             </div>
             <div>
-              <span className="text-gray-400">전송 시간:</span>
-              <span className="text-white ml-2">{transferStats.transferTime.toFixed(2)}초</span>
+              <span className="text-gray-500 dark:text-gray-400">전송 시간:</span>
+              <span className="text-gray-900 dark:text-white ml-2">{transferStats.transferTime.toFixed(2)}초</span>
             </div>
             <div>
-              <span className="text-gray-400">대역폭:</span>
-              <span className="text-white ml-2">{transferStats.bandwidth.toFixed(2)} MB/s</span>
+              <span className="text-gray-500 dark:text-gray-400">대역폭:</span>
+              <span className="text-gray-900 dark:text-white ml-2">{transferStats.bandwidth.toFixed(2)} MB/s</span>
             </div>
             <div className="col-span-2">
-              <span className="text-gray-400">SHA256:</span>
-              <span className="text-white ml-2 text-xs font-mono">{transferStats.hash.substring(0, 16)}...</span>
+              <span className="text-gray-500 dark:text-gray-400">SHA256:</span>
+              <span className="text-gray-900 dark:text-white ml-2 text-xs font-mono">{transferStats.hash.substring(0, 16)}...</span>
             </div>
           </div>
         </div>
@@ -438,10 +424,10 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
             검증 {verificationResult.is_valid ? '성공' : '실패'}
           </h4>
           <div className="text-sm space-y-1">
-            <p className="text-gray-300">원본 해시: {verificationResult.original_hash.substring(0, 16)}...</p>
-            <p className="text-gray-300">수신 해시: {verificationResult.received_hash.substring(0, 16)}...</p>
-            <p className="text-gray-300">크기 일치: {verificationResult.file_size_match ? '✅' : '❌'}</p>
-            <p className="text-gray-300">검증 시간: {verificationResult.verification_time.toFixed(2)}초</p>
+            <p className="text-gray-700 dark:text-gray-300">원본 해시: {verificationResult.original_hash.substring(0, 16)}...</p>
+            <p className="text-gray-700 dark:text-gray-300">수신 해시: {verificationResult.received_hash.substring(0, 16)}...</p>
+            <p className="text-gray-700 dark:text-gray-300">크기 일치: {verificationResult.file_size_match ? '✅' : '❌'}</p>
+            <p className="text-gray-700 dark:text-gray-300">검증 시간: {verificationResult.verification_time.toFixed(2)}초</p>
           </div>
         </div>
       )}
@@ -487,11 +473,11 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-discord-light rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+              className="modal-content max-w-2xl max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-white flex items-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
                   {verificationResult.is_valid ? (
                     <>
                       <CheckCircleIcon className="w-8 h-8 mr-2 text-green-400" />
@@ -506,24 +492,24 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
                 </h2>
                 <button
                   onClick={() => setShowVerificationModal(false)}
-                  className="text-gray-400 hover:text-white"
+                  className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white"
                 >
                   <XMarkIcon className="w-6 h-6" />
                 </button>
               </div>
 
-              <div className={`rounded-lg p-6 ${verificationResult.is_valid ? 'bg-green-900/30 border border-green-500' : 'bg-red-900/30 border border-red-500'}`}>
+              <div className={`rounded-lg p-6 ${verificationResult.is_valid ? 'bg-green-50 dark:bg-green-900/30 border border-green-300 dark:border-green-500' : 'bg-red-50 dark:bg-red-900/30 border border-red-300 dark:border-red-500'}`}>
                 <div className="space-y-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-white mb-2">파일 크기 비교</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">파일 크기 비교</h3>
                     <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="bg-discord-darker p-3 rounded">
-                        <p className="text-gray-400 mb-1">원본 파일 크기</p>
-                        <p className="text-white font-mono text-lg">{(verificationResult.original_size / 1024 / 1024).toFixed(2)} MB</p>
+                      <div className="bg-gray-100 dark:bg-discord-darker p-3 rounded">
+                        <p className="text-gray-500 dark:text-gray-400 mb-1">원본 파일 크기</p>
+                        <p className="text-gray-900 dark:text-white font-mono text-lg">{(verificationResult.original_size / 1024 / 1024).toFixed(2)} MB</p>
                       </div>
-                      <div className="bg-discord-darker p-3 rounded">
-                        <p className="text-gray-400 mb-1">수신 파일 크기</p>
-                        <p className="text-white font-mono text-lg">{(verificationResult.received_size / 1024 / 1024).toFixed(2)} MB</p>
+                      <div className="bg-gray-100 dark:bg-discord-darker p-3 rounded">
+                        <p className="text-gray-500 dark:text-gray-400 mb-1">수신 파일 크기</p>
+                        <p className="text-gray-900 dark:text-white font-mono text-lg">{(verificationResult.received_size / 1024 / 1024).toFixed(2)} MB</p>
                       </div>
                     </div>
                     <div className="mt-3 text-center">
@@ -534,15 +520,15 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
                   </div>
 
                   <div>
-                    <h3 className="text-lg font-semibold text-white mb-2">SHA256 해시 비교</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">SHA256 해시 비교</h3>
                     <div className="space-y-2 text-sm">
-                      <div className="bg-discord-darker p-3 rounded">
-                        <p className="text-gray-400 mb-1">원본 파일 해시</p>
-                        <p className="text-white font-mono break-all">{verificationResult.original_hash}</p>
+                      <div className="bg-gray-100 dark:bg-discord-darker p-3 rounded">
+                        <p className="text-gray-500 dark:text-gray-400 mb-1">원본 파일 해시</p>
+                        <p className="text-gray-900 dark:text-white font-mono break-all">{verificationResult.original_hash}</p>
                       </div>
-                      <div className="bg-discord-darker p-3 rounded">
-                        <p className="text-gray-400 mb-1">수신 파일 해시</p>
-                        <p className="text-white font-mono break-all">{verificationResult.received_hash}</p>
+                      <div className="bg-gray-100 dark:bg-discord-darker p-3 rounded">
+                        <p className="text-gray-500 dark:text-gray-400 mb-1">수신 파일 해시</p>
+                        <p className="text-gray-900 dark:text-white font-mono break-all">{verificationResult.received_hash}</p>
                       </div>
                     </div>
                     <div className="mt-3 text-center">
@@ -552,19 +538,19 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
                     </div>
                   </div>
 
-                  <div className="bg-discord-darker p-4 rounded">
-                    <p className="text-gray-400 text-sm">검증 시간: <span className="text-white">{verificationResult.verification_time.toFixed(3)}초</span></p>
+                  <div className="bg-gray-100 dark:bg-discord-darker p-4 rounded">
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">검증 시간: <span className="text-gray-900 dark:text-white">{verificationResult.verification_time.toFixed(3)}초</span></p>
                   </div>
 
                   {verificationResult.is_valid ? (
-                    <div className="bg-green-900/50 p-4 rounded border border-green-500">
-                      <p className="text-green-100 text-center font-semibold">
+                    <div className="bg-green-100 dark:bg-green-900/50 p-4 rounded border border-green-400 dark:border-green-500">
+                      <p className="text-green-800 dark:text-green-100 text-center font-semibold">
                         🎉 파일이 완벽하게 일치합니다! 무손실 전송이 성공적으로 완료되었습니다.
                       </p>
                     </div>
                   ) : (
-                    <div className="bg-red-900/50 p-4 rounded border border-red-500">
-                      <p className="text-red-100 text-center font-semibold">
+                    <div className="bg-red-100 dark:bg-red-900/50 p-4 rounded border border-red-400 dark:border-red-500">
+                      <p className="text-red-800 dark:text-red-100 text-center font-semibold">
                         ⚠️ 파일이 손상되었거나 변경되었습니다. 다시 전송해주세요.
                       </p>
                     </div>
@@ -590,12 +576,12 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-discord-light rounded-lg w-full max-w-4xl mx-4 h-[90vh] flex flex-col"
+              className="modal-content max-w-4xl h-[90vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
               {/* 헤더 */}
-              <div className="flex justify-between items-center p-6 border-b border-gray-700">
-                <h2 className="text-2xl font-bold text-white flex items-center">
+              <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
                   <FilmIcon className="w-8 h-8 mr-2 text-purple-400" />
                   AI 동영상 분석 챗봇
                 </h2>
@@ -616,7 +602,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
                   )}
                   <button
                     onClick={() => setShowAnalysisModal(false)}
-                    className="text-gray-400 hover:text-white"
+                    className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white"
                   >
                     <XMarkIcon className="w-6 h-6" />
                   </button>
@@ -624,7 +610,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
               </div>
 
               {/* 채팅 메시지 영역 */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 dark:bg-transparent">
                 {chatMessages.map((msg, idx) => (
                   <div
                     key={idx}
@@ -634,7 +620,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
                       className={`max-w-[80%] rounded-lg p-4 ${
                         msg.role === 'user'
                           ? 'bg-discord-brand text-white'
-                          : 'bg-discord-darker text-gray-100'
+                          : 'bg-gray-200 dark:bg-discord-darker text-gray-900 dark:text-gray-100'
                       }`}
                     >
                       <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -644,7 +630,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
 
                 {isChatLoading && (
                   <div className="flex justify-start">
-                    <div className="bg-discord-darker text-gray-100 rounded-lg p-4">
+                    <div className="bg-gray-200 dark:bg-discord-darker text-gray-900 dark:text-gray-100 rounded-lg p-4">
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                         <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
@@ -656,7 +642,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
               </div>
 
               {/* 입력 영역 */}
-              <div className="p-4 border-t border-gray-700">
+              <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-transparent">
                 <form onSubmit={handleChatSubmit} className="flex space-x-2">
                   <input
                     type="text"
@@ -674,7 +660,7 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
                     전송
                   </button>
                 </form>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                   예시: "이 동영상에 몇 명이 등장하나요?", "주요 장면을 설명해주세요", "등장 인물의 특징은?"
                 </p>
               </div>

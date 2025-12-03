@@ -64,12 +64,20 @@ export default function DashboardPage() {
       console.log('❌ Socket.IO 연결 해제 (대시보드)');
     });
 
+    // 폴링 백업 추가 (이슈 2 해결) - 10초마다 방 목록 새로고침
+    // Socket.IO 이벤트가 누락되는 경우를 대비
+    const pollingInterval = setInterval(() => {
+      console.log('🔄 폴링으로 방 목록 새로고침');
+      fetchRooms();
+    }, 10000);
+
     // 클린업
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
       }
+      clearInterval(pollingInterval);
     };
   }, []);
 
@@ -183,9 +191,7 @@ export default function DashboardPage() {
               className="sidebar-item w-full"
             >
               <Cog6ToothIcon className="w-5 h-5 mr-3" />
-              <h2 className="text-s font-lighttext-gray-900 dark:text-gray-100">
               설정
-              </h2>
             </button>
           </div>
         </nav>
@@ -244,11 +250,11 @@ export default function DashboardPage() {
                 }
               }
             }}
-            className="bg-discord-light border border-gray-700 p-6 rounded-lg text-white hover:border-gray-600 transition-colors cursor-pointer"
+            className="dashboard-card p-6 rounded-lg hover:border-discord-brand transition-colors cursor-pointer"
           >
-            <UserGroupIcon className="w-8 h-8 mb-3" />
-            <h3 className="text-lg font-semibold mb-1">회의 참가</h3>
-            <p className="text-sm text-gray-400">
+            <UserGroupIcon className="w-8 h-8 mb-3 text-gray-600 dark:text-white" />
+            <h3 className="text-lg font-semibold mb-1 text-gray-900 dark:text-white">회의 참가</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               초대 코드로 회의에 참가하세요
             </p>
           </motion.button>
@@ -339,19 +345,19 @@ export default function DashboardPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-white">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                   새 회의 만들기
                 </h2>
                 <button
                   onClick={() => setShowCreateModal(false)}
-                  className="text-gray-400 hover:text-white"
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
                 >
                   <XMarkIcon className="w-6 h-6" />
                 </button>
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
                   회의 이름
                 </label>
                 <input
@@ -454,7 +460,7 @@ export default function DashboardPage() {
                 </h2>
                 <button
                   onClick={() => setShowSettings(false)}
-                  className="text-gray-400 hover:text-white"
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
                 >
                   <XMarkIcon className="w-6 h-6" />
                 </button>
@@ -467,7 +473,7 @@ export default function DashboardPage() {
                   <div className="rounded-lg p-4 space-y-3 bg-gray-100 dark:bg-discord-darker">
                     <div className="flex justify-between">
                       <span className="text-gray-700 dark:text-gray-400">이름</span>
-                      <span className="text-gray-700 dark: text-white">{user?.username}</span>
+                      <span className="text-gray-700 dark:text-white">{user?.username}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-700 dark:text-gray-400">이메일</span>
@@ -475,7 +481,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-700 dark:text-gray-400">개인 코드</span>
-                      <span className="font-mono text-gray-700 dark: text-white ">{user?.personalCode}</span>
+                      <span className="font-mono text-gray-700 dark:text-white">{user?.personalCode}</span>
                     </div>
                   </div>
                 </div>

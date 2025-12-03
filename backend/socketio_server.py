@@ -103,6 +103,23 @@ async def join_room(sid, data):
     print(f'[STATS] 현재 방 {room_id} 참가자: {participant_count}명')
     print(f'   참가자 목록: {list(room_participants[room_id])}')
 
+    # 방을 active 상태로 변경 (이슈 1 해결)
+    try:
+        import sqlite3
+        conn = sqlite3.connect('videonet.db')
+        conn.execute(
+            "UPDATE meetings SET status = 'active' WHERE id = ?",
+            (int(room_id),)
+        )
+        conn.commit()
+        conn.close()
+        print(f'[OK] 방 {room_id} 활성화 완료')
+        
+        # 방 목록 업데이트 알림 발송 (이슈 2 해결)
+        await notify_room_list_update()
+    except Exception as e:
+        print(f'[ERROR] 방 {room_id} 활성화 실패: {e}')
+
     # 다른 참가자들에게 알림
     await sio.emit('user_joined', {
         'userId': sid,

@@ -89,9 +89,64 @@
   :root[data-theme='dark'] .dashboard-card {
     @apply bg-discord-light border-gray-700;
   }
-}
-#추가부분
 
+  /* RoomPage 전체 배경 */
+  .room-root {
+    @apply bg-gray-100 text-gray-900;
+  }
+  html[data-theme='dark'] .room-root {
+    @apply bg-discord-dark text-gray-100;
+  }
+
+  /* RoomPage 헤더/컨트롤바 */
+  .room-header {
+    @apply bg-white border-b border-gray-200;
+  }
+  html[data-theme='dark'] .room-header {
+    @apply bg-discord-darker border-gray-800;
+  }
+
+  /* RoomPage 사이드바 (채팅/파일) */
+  .room-sidebar {
+    @apply bg-white border-l border-gray-200;
+  }
+  html[data-theme='dark'] .room-sidebar {
+    @apply bg-discord-light border-gray-800;
+  }
+
+  /* RoomPage 설정 모달 내부 박스 */
+  .room-settings-box {
+    @apply bg-gray-100 rounded p-3;
+  }
+  html[data-theme='dark'] .room-settings-box {
+    @apply bg-discord-darker;
+  }
+
+  /* 컨트롤바 버튼 (기본 상태) */
+  .control-btn {
+    @apply p-3 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 transition-colors;
+  }
+  html[data-theme='dark'] .control-btn {
+    @apply bg-gray-700 hover:bg-gray-600 text-white;
+  }
+
+  /* 파일 전송 컴포넌트 배경 */
+  .file-transfer-root {
+    @apply bg-white rounded-lg p-6 space-y-4 border border-gray-200;
+  }
+  html[data-theme='dark'] .file-transfer-root {
+    @apply bg-discord-light border-gray-700;
+  }
+
+  /* 파일 전송 통계 박스 */
+  .file-transfer-stats {
+    @apply bg-gray-100 rounded-lg p-4 space-y-2;
+  }
+  html[data-theme='dark'] .file-transfer-stats {
+    @apply bg-discord-darker;
+  }
+
+  /* Discord 스타일 버튼 */
   .btn-discord {
     @apply px-4 py-2 bg-discord-brand text-white rounded-md 
            hover:bg-discord-brandHover transition-colors duration-200
@@ -176,7 +231,7 @@
   html[data-theme='dark'] .modal-content {
     @apply bg-discord-light;
   }
-
+}
 
 /* =========================================
    UTILITIES 레이어 - 유틸 클래스

@@ -189,10 +189,11 @@ meetings (id, host_id, name, is_private, max_participants, status, created_at)
 - PSNR/SSIM 품질 지표
 - Recharts 그래프 시각화
 
-### 7. 웹캠 실시간 효과
+### 7. 웹캠 실시간 효과 (토글형 즉시 적용)
 - **영상**: 반전(좌우/상하), 전단(45°/90°), AI 필터 6종
   - 흑백, 세피아, 블러, 엣지 감지, 카툰, 네온
 - **오디오**: Low Pass Filter, Echo, Reverb
+- **특징**: 토글 시 즉시 적용, 비디오/오디오 독립 처리 (충돌 없음)
 
 ---
 
