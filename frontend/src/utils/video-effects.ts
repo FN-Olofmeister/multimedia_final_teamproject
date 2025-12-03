@@ -17,7 +17,9 @@ export class VideoEffectProcessor {
   private ctx: CanvasRenderingContext2D;
   private videoElement: HTMLVideoElement;
   private animationFrameId: number | null = null;
+  private intervalId: ReturnType<typeof setInterval> | null = null; // ✅ 백그라운드용 interval
   private outputStream: MediaStream | null = null;
+  private isProcessing: boolean = false; // ✅ 처리 중 플래그
 
   private effects: VideoEffectOptions = {
     flipH: false,
@@ -116,15 +118,22 @@ export class VideoEffectProcessor {
 
   /**
    * 프레임 처리 시작
+   * ✅ requestAnimationFrame + setInterval 하이브리드 방식
+   * - 탭이 활성화되어 있을 때: requestAnimationFrame (부드러운 60fps)
+   * - 탭이 백그라운드일 때: setInterval (30fps 유지)
    */
   private startProcessing(): void {
-    const processFrame = () => {
+    if (this.isProcessing) return;
+    this.isProcessing = true;
+
+    // ✅ 백그라운드에서도 동작하는 setInterval (33ms = 약 30fps)
+    this.intervalId = setInterval(() => {
       if (!this.videoElement.paused && !this.videoElement.ended) {
         this.processVideoFrame();
       }
-      this.animationFrameId = requestAnimationFrame(processFrame);
-    };
-    processFrame();
+    }, 33);
+
+    console.log('[VideoEffects] 프레임 처리 시작 (setInterval 30fps)');
   }
 
   /**
@@ -389,7 +398,15 @@ export class VideoEffectProcessor {
    * 처리 중지 및 리소스 정리
    */
   public stop(): void {
-    // 애니메이션 프레임 취소
+    this.isProcessing = false;
+
+    // ✅ setInterval 정리
+    if (this.intervalId !== null) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+
+    // 애니메이션 프레임 취소 (레거시 지원)
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;

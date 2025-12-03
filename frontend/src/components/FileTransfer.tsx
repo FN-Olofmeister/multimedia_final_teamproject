@@ -82,6 +82,93 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
     return hashHex;
   };
 
+  // 이미지 압축 함수 (Canvas 사용)
+  const compressImage = async (file: File, quality: number): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Canvas context를 가져올 수 없습니다'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+        
+        // JPEG로 압축 (quality: 0.0 ~ 1.0)
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              // 파일명에서 확장자 변경 (.jpg로)
+              const newFileName = file.name.replace(/\.[^/.]+$/, '') + '_compressed.jpg';
+              const compressedFile = new File([blob], newFileName, { type: 'image/jpeg' });
+              resolve(compressedFile);
+            } else {
+              reject(new Error('이미지 압축 실패'));
+            }
+          },
+          'image/jpeg',
+          quality / 100 // 0-100 → 0.0-1.0
+        );
+      };
+      img.onerror = () => reject(new Error('이미지 로드 실패'));
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  // 영상 압축 함수 (백엔드 API 사용)
+  const compressVideo = async (file: File, quality: number): Promise<File> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    // quality 0-100을 CRF 51-0으로 변환 (높은 quality = 낮은 CRF = 고품질)
+    const crf = Math.round(51 - (quality / 100) * 51);
+    formData.append('quality', crf.toString());
+    formData.append('preset', quality >= 70 ? 'slow' : quality >= 40 ? 'medium' : 'fast');
+
+    const response = await api.post('/compression/compress-video', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300000, // 5분 타임아웃 (영상 압축은 오래 걸림)
+    });
+
+    // Base64를 File로 변환
+    const byteCharacters = atob(response.data.compressed_file_base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'video/mp4' });
+    
+    return new File([blob], response.data.filename, { type: 'video/mp4' });
+  };
+
+  // 오디오 압축 함수 (백엔드 API 사용)
+  const compressAudio = async (file: File, quality: number): Promise<File> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    // quality 0-100을 bitrate로 변환
+    const bitrate = quality >= 80 ? 320 : quality >= 60 ? 192 : quality >= 40 ? 128 : 96;
+    formData.append('bitrate', bitrate.toString());
+
+    const response = await api.post('/compression/compress-audio', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000, // 2분 타임아웃
+    });
+
+    // Base64를 File로 변환
+    const byteCharacters = atob(response.data.compressed_file_base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'audio/mpeg' });
+    
+    return new File([blob], response.data.filename, { type: 'audio/mpeg' });
+  };
+
   // 파일 전송 (청크 기반)
   const sendFile = async () => {
     if (!selectedFile) return;
@@ -91,29 +178,78 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
     const startTime = Date.now();
 
     try {
+      let fileToSend = selectedFile;
+      let originalSize = selectedFile.size;
+      let mediaType: 'image' | 'video' | 'audio' | 'other' = 'other';
+
+      // 파일 타입 판별
+      if (selectedFile.type.includes('image')) {
+        mediaType = 'image';
+      } else if (selectedFile.type.includes('video')) {
+        mediaType = 'video';
+      } else if (selectedFile.type.includes('audio')) {
+        mediaType = 'audio';
+      }
+
+      // 미디어 파일인 경우 압축 적용
+      if (mediaType === 'image') {
+        toast(`이미지 압축 중... (품질: ${compressionQuality}%)`, { icon: '🗜️' });
+        try {
+          fileToSend = await compressImage(selectedFile, compressionQuality);
+          const compressionRatio = ((1 - fileToSend.size / originalSize) * 100).toFixed(1);
+          toast.success(`이미지 압축 완료! ${(originalSize / 1024).toFixed(1)}KB → ${(fileToSend.size / 1024).toFixed(1)}KB (${compressionRatio}% 감소)`);
+        } catch (compressError) {
+          console.error('이미지 압축 실패, 원본 전송:', compressError);
+          toast('압축 실패, 원본 파일을 전송합니다', { icon: '⚠️' });
+        }
+      } else if (mediaType === 'video') {
+        toast(`영상 압축 중... (품질: ${compressionQuality}%) - 시간이 걸릴 수 있습니다`, { icon: '🎬', duration: 10000 });
+        try {
+          fileToSend = await compressVideo(selectedFile, compressionQuality);
+          const compressionRatio = ((1 - fileToSend.size / originalSize) * 100).toFixed(1);
+          toast.success(`영상 압축 완료! ${(originalSize / 1024 / 1024).toFixed(2)}MB → ${(fileToSend.size / 1024 / 1024).toFixed(2)}MB (${compressionRatio}% 감소)`);
+        } catch (compressError: any) {
+          console.error('영상 압축 실패, 원본 전송:', compressError);
+          toast(compressError?.response?.data?.detail || '영상 압축 실패, 원본 파일을 전송합니다', { icon: '⚠️' });
+        }
+      } else if (mediaType === 'audio') {
+        toast(`오디오 압축 중... (품질: ${compressionQuality}%)`, { icon: '🎵' });
+        try {
+          fileToSend = await compressAudio(selectedFile, compressionQuality);
+          const compressionRatio = ((1 - fileToSend.size / originalSize) * 100).toFixed(1);
+          toast.success(`오디오 압축 완료! ${(originalSize / 1024).toFixed(1)}KB → ${(fileToSend.size / 1024).toFixed(1)}KB (${compressionRatio}% 감소)`);
+        } catch (compressError: any) {
+          console.error('오디오 압축 실패, 원본 전송:', compressError);
+          toast(compressError?.response?.data?.detail || '오디오 압축 실패, 원본 파일을 전송합니다', { icon: '⚠️' });
+        }
+      }
+
       // 해시 계산
       toast('파일 해시 계산 중...', { icon: '🔐' });
-      const fileHash = await calculateHash(selectedFile);
+      const fileHash = await calculateHash(fileToSend);
 
       // 청크 크기: 16KB (대역폭 최소화)
       const CHUNK_SIZE = 16 * 1024;
-      const totalChunks = Math.ceil(selectedFile.size / CHUNK_SIZE);
+      const totalChunks = Math.ceil(fileToSend.size / CHUNK_SIZE);
 
       // 메타데이터 먼저 전송
       socket.emit('file_transfer_start', {
         roomId,
-        fileName: selectedFile.name,
-        fileSize: selectedFile.size,
-        fileType: selectedFile.type,
+        fileName: fileToSend.name,
+        fileSize: fileToSend.size,
+        fileType: fileToSend.type,
         totalChunks,
         hash: fileHash,
+        originalSize: originalSize, // 원본 크기도 전송
+        compressionQuality: mediaType !== 'other' ? compressionQuality : null,
+        mediaType: mediaType,
       });
 
       // 청크 단위로 전송
       for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, selectedFile.size);
-        const chunk = selectedFile.slice(start, end);
+        const end = Math.min(start + CHUNK_SIZE, fileToSend.size);
+        const chunk = fileToSend.slice(start, end);
 
         // ArrayBuffer로 변환
         const buffer = await chunk.arrayBuffer();
@@ -137,11 +273,11 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
 
       const endTime = Date.now();
       const transferTime = (endTime - startTime) / 1000; // 초
-      const bandwidth = (selectedFile.size / 1024 / 1024) / transferTime; // MB/s
+      const bandwidth = (fileToSend.size / 1024 / 1024) / transferTime; // MB/s
 
       setTransferStats({
-        fileName: selectedFile.name,
-        fileSize: selectedFile.size,
+        fileName: fileToSend.name,
+        fileSize: fileToSend.size,
         transferTime,
         bandwidth,
         hash: fileHash,
@@ -167,7 +303,12 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
       console.log('파일 수신 시작:', data);
       fileMetadata = data;
       receivedChunks = [];
-      toast(`${data.fileName} 수신 중...`, { icon: '📥' });
+      // ✅ 발신자 이름 표시
+      const senderName = data.senderName || '알 수 없음';
+      toast(`📥 ${senderName}님이 ${data.fileName} 전송 중...`, { 
+        icon: '📁',
+        duration: 3000,
+      });
     });
 
     socket.on('file_chunk', ({ chunkIndex, data }: any) => {
@@ -185,7 +326,9 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
         const file = new File([blob], fileMetadata.fileName, { type: fileMetadata.fileType });
 
         setReceivedFile(file);
-        toast.success(`${fileMetadata.fileName} 수신 완료!`);
+        // ✅ 발신자 이름 표시
+        const senderName = fileMetadata.senderName || '알 수 없음';
+        toast.success(`✅ ${senderName}님의 ${fileMetadata.fileName} 수신 완료!`);
 
         // 자동 다운로드
         const url = URL.createObjectURL(blob);
@@ -432,18 +575,29 @@ export default function FileTransfer({ roomId, socket, myUserId }: FileTransferP
         </div>
       )}
 
-      {/* 압축 품질 조절 (이미지/영상 파일만) */}
-      {selectedFile && (selectedFile.type.includes('image') || selectedFile.type.includes('video')) && (
+      {/* 압축 품질 조절 (이미지/영상/오디오 파일) */}
+      {selectedFile && (selectedFile.type.includes('image') || selectedFile.type.includes('video') || selectedFile.type.includes('audio')) && (
         <div className="space-y-4">
           <CompressionQualitySlider
             quality={compressionQuality}
             onChange={setCompressionQuality}
             showMetrics={false}
           />
-          <CompressionAnalysis
-            file={selectedFile}
-            fileType={selectedFile.type.includes('video') ? 'video' : 'image'}
-          />
+          {/* 이미지/영상만 압축 분석 표시 (오디오는 분석 UI 없음) */}
+          {(selectedFile.type.includes('image') || selectedFile.type.includes('video')) && (
+            <CompressionAnalysis
+              file={selectedFile}
+              fileType={selectedFile.type.includes('video') ? 'video' : 'image'}
+            />
+          )}
+          {/* 오디오 파일 안내 */}
+          {selectedFile.type.includes('audio') && (
+            <div className="p-3 bg-blue-900/20 rounded-lg border border-blue-800/30">
+              <p className="text-xs text-blue-300">
+                <strong>오디오 압축:</strong> 품질 80% 이상 = 320kbps, 60% 이상 = 192kbps, 40% 이상 = 128kbps, 그 이하 = 96kbps
+              </p>
+            </div>
+          )}
         </div>
       )}
 
