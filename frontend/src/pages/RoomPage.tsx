@@ -241,10 +241,10 @@ export default function RoomPage() {
       // 자기 자신이 아닌 경우에만 처리
       if (userId && userId !== socketIdRef.current) {
         toast(`${userInfo?.username}님이 참가했습니다`, { icon: '👋' });
-        
+
         // 참가자 정보 저장
         participantInfoRef.current.set(userId, { username: userInfo?.username || 'User', userInfo });
-        
+
         // 기존 연결이 있으면 정리 (재입장 케이스)
         const existingConnection = connectionsRef.current.get(userId);
         if (existingConnection) {
@@ -253,13 +253,17 @@ export default function RoomPage() {
           connectionsRef.current.delete(userId);
           setParticipants(prev => prev.filter(p => p.userId !== userId));
         }
-        
-        // ✅ 새 참가자에게 offer 전송 (나는 기존 참가자이므로 initiator)
-        createPeerConnection(userId, userInfo?.username || 'User', true);
+
+        // ✅ socketId 비교로 initiator 결정 (일관성 보장)
+        const myId = socketIdRef.current;
+        const isInitiator = myId < userId;
+        console.log(`[user_joined] initiator 결정: myId(${myId}) < userId(${userId}) = ${isInitiator}`);
+
+        createPeerConnection(userId, userInfo?.username || 'User', isInitiator);
       }
     });
 
-    // ✅ 현재 참가자 목록 수신 - 참가자 정보만 저장 (연결은 offer 수신 시 생성)
+    // ✅ 현재 참가자 목록 수신 - 참가자 정보만 저장 (연결은 user_joined 이벤트로 시작)
     socket.on('current_participants', (participantsList: any[]) => {
       console.log('[current_participants] 현재 참가자 목록:', participantsList?.length || 0, '명');
 
@@ -267,23 +271,9 @@ export default function RoomPage() {
         participantsList.forEach(({ userId, userInfo }) => {
           if (userId && userId !== socketIdRef.current) {
             console.log(`[current_participants] 기존 참가자 정보 저장: ${userInfo?.username} (${userId})`);
-            // 참가자 정보 저장 (연결은 기존 참가자가 offer를 보내면 그때 생성)
+            // 참가자 정보만 저장 (연결은 기존 참가자들이 user_joined 이벤트를 받아 시작)
             participantInfoRef.current.set(userId, { username: userInfo?.username || 'User', userInfo });
           }
-
-          // 이미 연결이 있는 상대면 스킵
-          if (connectionsRef.current.has(userId)) {
-            console.log('[current_participants] 이미 연결 있음, 스킵:', userId);
-            return;
-          }
-
-          // 나와 상대의 socketId 를 비교해서 initiator 결정
-          const isInitiator = socketIdRef.current < userId;
-          console.log(
-            `[current_participants] 기존 참가자와 연결 준비: ${userInfo?.username} (${userId}), initiator=${isInitiator}`
-          );
-
-          createPeerConnection(userId, userInfo?.username || 'User', isInitiator);
         });
       }
     });

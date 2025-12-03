@@ -19,7 +19,11 @@ export class NativeWebRTCConnection {
   private localStream: MediaStream | null = null;
   private remoteStream: MediaStream | null = null;
   private connectionState: ConnectionState = 'new';
-  
+
+  // ✅ ICE candidate 큐 추가 (remote description 설정 전에 받은 candidate 저장)
+  private pendingIceCandidates: RTCIceCandidateInit[] = [];
+  private remoteDescriptionSet: boolean = false;
+
   // 콜백 함수들
   private onIceCandidate: ((candidate: RTCIceCandidateInit) => void) | null = null;
   private onStream: ((stream: MediaStream) => void) | null = null;
@@ -224,7 +228,22 @@ export class NativeWebRTCConnection {
     );
 
     await this.pc.setRemoteDescription(description);
+    this.remoteDescriptionSet = true;
     console.log('원격 SDP 설정 완료:', description.type);
+
+    // ✅ 대기 중이던 ICE candidate들을 모두 추가
+    if (this.pendingIceCandidates.length > 0) {
+      console.log(`대기 중이던 ICE candidate ${this.pendingIceCandidates.length}개 추가 시작`);
+      for (const candidate of this.pendingIceCandidates) {
+        try {
+          await this.pc.addIceCandidate(candidate);
+          console.log('대기 ICE candidate 추가 완료');
+        } catch (error) {
+          console.error('대기 ICE candidate 추가 실패:', error);
+        }
+      }
+      this.pendingIceCandidates = [];
+    }
   }
 
   /**
@@ -233,8 +252,20 @@ export class NativeWebRTCConnection {
   async addIceCandidate(candidate: RTCIceCandidateInit): Promise<void> {
     if (!this.pc) throw new Error('PeerConnection이 없습니다');
 
-    await this.pc.addIceCandidate(candidate);
-    console.log('ICE candidate 추가 완료');
+    // ✅ remote description이 설정되지 않았으면 큐에 저장
+    if (!this.remoteDescriptionSet) {
+      console.log('remote description 설정 전이므로 ICE candidate를 큐에 저장');
+      this.pendingIceCandidates.push(candidate);
+      return;
+    }
+
+    // remote description이 설정되었으면 바로 추가
+    try {
+      await this.pc.addIceCandidate(candidate);
+      console.log('ICE candidate 추가 완료');
+    } catch (error) {
+      console.error('ICE candidate 추가 실패:', error);
+    }
   }
 
   /**
@@ -331,7 +362,11 @@ export class NativeWebRTCConnection {
     // 원격 스트림 정리
     this.remoteStream = null;
     this.connectionState = 'closed';
-    
+
+    // ✅ ICE candidate 큐 초기화
+    this.pendingIceCandidates = [];
+    this.remoteDescriptionSet = false;
+
     console.log('WebRTC 리소스 정리 완료');
   }
 
