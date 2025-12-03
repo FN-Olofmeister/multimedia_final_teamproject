@@ -27,7 +27,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { NativeWebRTCConnection } from '@/utils/webrtc-native';
 import { roomApi } from '@/utils/api';
-import io, { Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import FileTransfer from '@/components/FileTransfer';
 import WebcamCompression from '@/components/WebcamCompression';
@@ -213,6 +213,7 @@ export default function RoomPage() {
     socketRef.current = createSocket(localStorage.getItem("token"));
     const socket = socketRef.current;
 
+    // ✅ 단일 connect 핸들러
     socket.on("connect", () => {
       console.log("✅ Socket.IO 연결 성공, Socket ID:", socket.id);
       socketIdRef.current = socket.id;
@@ -223,67 +224,68 @@ export default function RoomPage() {
       });
     });
 
+    // 단일 connect_error 핸들러
     socket.on("connect_error", (error: any) => {
       console.error("❌ Socket.IO 연결 에러:", error);
       toast.error("WebSocket 연결에 실패했습니다");
     });
 
-    // Socket 이벤트 리스너
-    socket.on('connect', () => {
-      console.log('✅ Socket.IO 연결 성공, Socket ID:', socket.id);
-      socketIdRef.current = socket.id; // Socket ID 저장
-      
-      socket.emit('join_room', { 
-        roomId, 
-        userInfo: {
-          id: user?.id,
-          username: user?.username,
-          email: user?.email
-        }
-      });
-    });
-
-    // 새 사용자 참가 - 기존 연결 정리 후 새로 생성
+    // 새 사용자 참가 - initiator 역할을 socketId 정렬로 결정
     socket.on('user_joined', ({ userId, userInfo }: any) => {
       console.log('[user_joined] 새 사용자 참가:', userInfo?.username, 'userId:', userId, 'myId:', socketIdRef.current);
-      
+
+      if (!socketIdRef.current) return;
+
       // 자기 자신이 아닌 경우에만 처리
       if (userId && userId !== socketIdRef.current) {
         toast(`${userInfo?.username}님이 참가했습니다`, { icon: '👋' });
-        
-        // 기존 연결이 있으면 정리 (재입장 케이스)
+
+        // initiator 여부를 socketId 문자열 비교로 결정 (항상 한쪽만 true)
+        const isInitiator = socketIdRef.current < userId;
+
+        // 혹시 남아있는 옛날 연결이 있으면 정리
         const existingConnection = connectionsRef.current.get(userId);
         if (existingConnection) {
           console.log('[user_joined] 기존 연결 정리 후 재생성:', userId);
           existingConnection.disconnect();
           connectionsRef.current.delete(userId);
-          // 참가자 목록에서도 제거
           setParticipants(prev => prev.filter(p => p.userId !== userId));
         }
-        
-        // 새 참가자에게 offer 전송
-        createPeerConnection(userId, userInfo?.username || 'User', true);
+
+        // 새 참가자와 P2P 연결 생성
+        createPeerConnection(userId, userInfo?.username || 'User', isInitiator);
       } else {
         console.log('[user_joined] 자기 자신의 이벤트는 무시');
       }
     });
 
     // 현재 참가자 목록 수신
-    socket.on('current_participants', (participants: any[]) => {
-      console.log('현재 참가자 목록:', participants);
+    socket.on('current_participants', (list: any[]) => {
+      console.log('현재 참가자 목록:', list);
       console.log('내 Socket ID:', socketIdRef.current);
 
-      // 비어있지 않은 경우에만 처리
-      if (participants && participants.length > 0) {
-        participants.forEach(({ userId, userInfo }) => {
-          // 자기 자신이 아닌 경우에만 연결 준비 (offer는 보내지 않음)
-          if (userId && userId !== socketIdRef.current) {
-            console.log(`기존 참가자 발견: ${userInfo?.username} (${userId})`);
-            // 연결 객체만 생성하고 offer는 기존 참가자가 보내도록 대기
-            // user_joined 이벤트를 받은 기존 참가자가 offer를 보낼 것임
-          } else {
+      if (!socketIdRef.current) return;
+
+      if (list && list.length > 0) {
+        list.forEach(({ userId, userInfo }) => {
+          if (!userId || userId === socketIdRef.current) {
             console.log(`자기 자신 무시: ${userId}`);
+            return;
           }
+
+          // 이미 연결이 있는 상대면 스킵
+          if (connectionsRef.current.has(userId)) {
+            console.log('[current_participants] 이미 연결 있음, 스킵:', userId);
+            return;
+          }
+
+          // 나와 상대의 socketId 를 비교해서 initiator 결정
+          const isInitiator = socketIdRef.current < userId;
+          console.log(
+            `[current_participants] 기존 참가자와 연결 준비: ${userInfo?.username} (${userId}), initiator=${isInitiator}`
+          );
+
+          createPeerConnection(userId, userInfo?.username || 'User', isInitiator);
         });
       } else {
         console.log('현재 방에 다른 참가자가 없습니다');
@@ -335,16 +337,16 @@ export default function RoomPage() {
     socket.on('chat_message', (message: any) => {
       setMessages(prev => [...prev, message]);
     });
-    
-    // 연결 에러 처리
-    socket.on('connect_error', (error: any) => {
-      console.error('❌ Socket.IO 연결 에러:', error);
-      toast.error('WebSocket 연결에 실패했습니다');
-    });
   };
 
   // P2P 연결 생성
   const createPeerConnection = async (userId: string, username: string, isInitiator: boolean) => {
+    // 이미 이 상대와 연결이 있으면 다시 만들지 않기 (중복 PeerConnection 방지)
+    if (connectionsRef.current.has(userId)) {
+      console.log('[createPeerConnection] 이미 연결 존재, 스킵:', userId);
+      return;
+    }
+
     const connection = new NativeWebRTCConnection(userId, isInitiator);
     
     // ICE candidate 콜백 설정
